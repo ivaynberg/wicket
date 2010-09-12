@@ -54,7 +54,6 @@ import org.apache.wicket.util.visit.ClassVisitFilter;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
 import org.apache.wicket.util.visit.Visits;
-import org.apache.wicket.validation.IValidatorAddListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -326,12 +325,6 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 
 		// add the validator
 		formValidators_add(validator);
-
-		// see whether the validator listens for add events
-		if (validator instanceof IValidatorAddListener)
-		{
-			((IValidatorAddListener)validator).onAdded(this);
-		}
 	}
 
 	/**

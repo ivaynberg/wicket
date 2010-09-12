@@ -3701,7 +3701,7 @@ public abstract class Component
 	 *            A class derived from IBehavior
 	 */
 	@SuppressWarnings("unchecked")
-	public <M extends IBehavior> List<M> getBehaviors(Class<M> type)
+	public <M> List<M> getBehaviors(Class<M> type)
 	{
 		List<? extends IBehavior> behaviors = getBehaviorsRawList();
 		if (behaviors == null)

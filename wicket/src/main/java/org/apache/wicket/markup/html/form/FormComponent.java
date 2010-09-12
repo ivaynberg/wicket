@@ -34,6 +34,7 @@ import org.apache.wicket.IConverterLocator;
 import org.apache.wicket.Localizer;
 import org.apache.wicket.Page;
 import org.apache.wicket.WicketRuntimeException;
+import org.apache.wicket.behavior.IBehavior;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.IPropertyReflectionAwareModel;
@@ -55,8 +56,8 @@ import org.apache.wicket.validation.INullAcceptingValidator;
 import org.apache.wicket.validation.IValidatable;
 import org.apache.wicket.validation.IValidationError;
 import org.apache.wicket.validation.IValidator;
-import org.apache.wicket.validation.IValidatorAddListener;
 import org.apache.wicket.validation.ValidationError;
+import org.apache.wicket.validation.validator.ValidatorToComponentValidatorAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -360,11 +361,15 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * Visits any form components inside component if it is a container, or component itself if it
 	 * is itself a form component
 	 * 
+	 * @param <R>
+	 *            visitor's return type
+	 * 
 	 * @param component
 	 *            starting point of the traversal
 	 * 
 	 * @param visitor
 	 *            The visitor to call
+	 * @return return value of the {@link IVisit} or {@code null} if none
 	 */
 	public static final <R> R visitComponentsPostOrder(Component component,
 		final org.apache.wicket.util.visit.IVisitor<Component, R> visitor)
@@ -407,12 +412,6 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	private String typeName;
 
 	/**
-	 * The list of validators for this form component as either an IValidator instance or an array
-	 * of IValidator instances.
-	 */
-	private Object validators = null;
-
-	/**
 	 * @see org.apache.wicket.Component#Component(String)
 	 */
 	public FormComponent(final String id)
@@ -445,23 +444,21 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * @throws IllegalArgumentException
 	 *             if validator is null
 	 * @see IValidator
-	 * @see IValidatorAddListener
 	 * 
 	 */
-	public final FormComponent<T> add(final IValidator<? super T> validator)
+	@SuppressWarnings("unchecked")
+	public final FormComponent<T> add(IValidator<? super T> validator)
 	{
 		if (validator == null)
 		{
 			throw new IllegalArgumentException("validator argument cannot be null");
 		}
 		// add the validator
-		validators_add(validator);
-
-		// see whether the validator listens for add events
-		if (validator instanceof IValidatorAddListener)
+		if (!(validator instanceof IBehavior))
 		{
-			((IValidatorAddListener)validator).onAdded(this);
+			validator = new ValidatorToComponentValidatorAdapter<T>((IValidator<T>)validator);
 		}
+		add((IBehavior)validator);
 		return this;
 	}
 
@@ -756,22 +753,27 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * 
 	 * @return List of validators
 	 */
+	@SuppressWarnings("unchecked")
 	public final List<IValidator<? super T>> getValidators()
 	{
-		final int size = validators_size();
-		if (size == 0)
+		List<? extends IBehavior> behaviors = getBehaviorsRawList();
+		if (behaviors == null)
 		{
 			return Collections.emptyList();
 		}
-		else
+
+		List<IValidator<? super T>> subset = new ArrayList<IValidator<? super T>>(behaviors.size());
+		for (IBehavior behavior : behaviors)
 		{
-			final List<IValidator<? super T>> list = new ArrayList<IValidator<? super T>>(size);
-			for (int i = 0; i < size; i++)
+			if (behavior != null)
 			{
-				list.add(validators_get(i));
+				if (behavior instanceof IValidator)
+				{
+					subset.add((IValidator<? super T>)behavior);
+				}
 			}
-			return Collections.unmodifiableList(list);
 		}
+		return Collections.unmodifiableList(subset);
 	}
 
 	/**
@@ -1043,79 +1045,6 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 				}
 			}
 		}
-	}
-
-	/**
-	 * @param validator
-	 *            The validator to add to the validators Object (which may be an array of
-	 *            IValidators or a single instance, for efficiency)
-	 */
-	@SuppressWarnings("unchecked")
-	private void validators_add(final IValidator<? super T> validator)
-	{
-		if (validators == null)
-		{
-			validators = validator;
-		}
-		else
-		{
-			// Get current list size
-			final int size = validators_size();
-
-			// Create array that holds size + 1 elements
-			final IValidator<? super T>[] validators = new IValidator[size + 1];
-
-			// Loop through existing validators copying them
-			for (int i = 0; i < size; i++)
-			{
-				validators[i] = validators_get(i);
-			}
-
-			// Add new validator to the end
-			validators[size] = validator;
-
-			// Save new validator list
-			this.validators = validators;
-		}
-	}
-
-	/**
-	 * Gets validator from validators Object (which may be an array of IValidators or a single
-	 * instance, for efficiency) at the given index
-	 * 
-	 * @param index
-	 *            The index of the validator to get
-	 * @return The validator
-	 */
-	@SuppressWarnings("unchecked")
-	private IValidator<T> validators_get(int index)
-	{
-		if (validators == null)
-		{
-			throw new IndexOutOfBoundsException();
-		}
-		if (validators instanceof IValidator[])
-		{
-			return ((IValidator[])validators)[index];
-		}
-		return (IValidator<T>)validators;
-	}
-
-	/**
-	 * @return The number of validators in the validators Object (which may be an array of
-	 *         IValidators or a single instance, for efficiency)
-	 */
-	private int validators_size()
-	{
-		if (validators == null)
-		{
-			return 0;
-		}
-		if (validators instanceof IValidator<?>[])
-		{
-			return ((IValidator[])validators).length;
-		}
-		return 1;
 	}
 
 	/**
@@ -1425,20 +1354,17 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 */
 	protected final void validateValidators()
 	{
-		final int size = validators_size();
-
 		final IValidatable<T> validatable = newValidatable();
 
-		int i = 0;
 		IValidator<T> validator = null;
 
 		boolean isNull = getConvertedInput() == null;
 
 		try
 		{
-			for (i = 0; i < size; i++)
+			for (IValidator<T> v : getBehaviors(IValidator.class))
 			{
-				validator = validators_get(i);
+				validator = v;
 
 				if (isNull == false || validator instanceof INullAcceptingValidator<?>)
 				{
@@ -1448,6 +1374,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 				{
 					break;
 				}
+
 			}
 		}
 		catch (Exception e)

@@ -176,4 +176,10 @@ public class PatternValidator extends StringValidator
 			error(validatable);
 		}
 	}
+
+	@Override
+	protected int getMaximum()
+	{
+		return -1;
+	}
 }

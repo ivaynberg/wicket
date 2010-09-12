@@ -18,6 +18,9 @@ package org.apache.wicket.validation.validator;
 
 import java.util.Map;
 
+import org.apache.wicket.Component;
+import org.apache.wicket.markup.ComponentTag;
+import org.apache.wicket.util.lang.Objects;
 import org.apache.wicket.validation.IValidatable;
 
 
@@ -30,13 +33,35 @@ import org.apache.wicket.validation.IValidatable;
  * @author Igor Vaynberg (ivaynberg)
  * @since 1.2.6
  */
-public abstract class StringValidator extends AbstractValidator<String>
+public abstract class StringValidator extends AbstractBaseComponentValidator<String>
 {
+	private static final long serialVersionUID = 1L;
 
 	/**
-	 * 
+	 * @return maximum length of the input or {@code <0} if unrestricted
 	 */
-	private static final long serialVersionUID = 1L;
+	protected abstract int getMaximum();
+
+	@Override
+	public void onComponentTag(Component component, ComponentTag tag)
+	{
+		super.onComponentTag(component, tag);
+		String type = tag.getAttribute("type");
+		if (!"input".equalsIgnoreCase(tag.getName()))
+		{
+			return;
+		}
+		if (!(Objects.equal("text", type) && !Objects.equal("password", type)))
+		{
+			return;
+		}
+
+		int max = getMaximum();
+		if (max > 0)
+		{
+			tag.put("maxlength", max);
+		}
+	}
 
 	/**
 	 * Validator for checking if the length of a <code>String</code> is exactly the specified
@@ -96,10 +121,17 @@ public abstract class StringValidator extends AbstractValidator<String>
 		protected Map<String, Object> variablesMap(IValidatable<String> validatable)
 		{
 			final Map<String, Object> map = super.variablesMap(validatable);
-			map.put("length", (validatable.getValue() != null) ? new Integer(
-				(validatable.getValue()).length()) : 0);
+			map.put("length",
+				(validatable.getValue() != null) ? new Integer((validatable.getValue()).length())
+					: 0);
 			map.put("exact", new Integer(length));
 			return map;
+		}
+
+		@Override
+		protected int getMaximum()
+		{
+			return length;
 		}
 
 	}
@@ -133,6 +165,7 @@ public abstract class StringValidator extends AbstractValidator<String>
 		 * 
 		 * @return the maximum value
 		 */
+		@Override
 		public final int getMaximum()
 		{
 			return maximum;
@@ -211,6 +244,7 @@ public abstract class StringValidator extends AbstractValidator<String>
 		 * 
 		 * @return the maximum length value
 		 */
+		@Override
 		public final int getMaximum()
 		{
 			return maximum;
@@ -311,6 +345,12 @@ public abstract class StringValidator extends AbstractValidator<String>
 			map.put("minimum", new Integer(minimum));
 			map.put("length", new Integer((validatable.getValue()).length()));
 			return map;
+		}
+
+		@Override
+		protected int getMaximum()
+		{
+			return -1;
 		}
 
 	}
