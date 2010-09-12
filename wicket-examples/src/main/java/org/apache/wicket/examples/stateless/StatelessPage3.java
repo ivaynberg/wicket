@@ -46,7 +46,7 @@ public class StatelessPage3 extends WebPage
 		super.onBeforeRender();
 
 		// get the value from page parameters
-		number = getPage().getPageParameters().getNamedParameter(PARAMETER_NAME).toInt(10);
+		number = getPage().getPageParameters().get(PARAMETER_NAME).toInt(10);
 	}
 
 	/**
@@ -56,7 +56,7 @@ public class StatelessPage3 extends WebPage
 	{
 		setStatelessHint(true);
 		add(new Label("message", new SessionModel()));
-		add(new BookmarkablePageLink("indexLink", Index.class));
+		add(new BookmarkablePageLink<Void>("indexLink", Index.class));
 		final TextField<Integer> field = new TextField<Integer>("textfield",
 			new PropertyModel<Integer>(this, "number"));
 		field.add(new MaximumValidator<Integer>(20));
@@ -73,7 +73,7 @@ public class StatelessPage3 extends WebPage
 				info("Submitted text: " + field.getDefaultModelObject());
 
 				// store the value in page parameters
-				getPage().getPageParameters().setNamedParameter(PARAMETER_NAME, number);
+				getPage().getPageParameters().set(PARAMETER_NAME, number);
 
 				// force redirect, otherwise the listener interface URL would be kept
 				getRequestCycle().setResponsePage(getPage());

@@ -26,6 +26,7 @@ import org.apache.wicket.request.handler.EmptyRequestHandler;
 import org.apache.wicket.request.handler.IPageRequestHandler;
 import org.apache.wicket.request.handler.PageProvider;
 import org.apache.wicket.request.handler.RenderPageRequestHandler;
+import org.apache.wicket.request.http.handler.ErrorCodeResponseHandler;
 import org.apache.wicket.request.mapper.StalePageException;
 import org.apache.wicket.settings.IExceptionSettings;
 import org.apache.wicket.settings.IExceptionSettings.UnexpectedExceptionDisplay;
@@ -41,22 +42,67 @@ public class DefaultExceptionMapper implements IExceptionMapper
 {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultExceptionMapper.class);
 
+	// default policy is to not change the URL in the address bar of the browser:
+	// - the url syntax eventually gives the user some indication of the error
+	// - the user can hit refresh in the browser to retry loading the page
+	private RenderPageRequestHandler.RedirectPolicy redirectPolicy = RenderPageRequestHandler.RedirectPolicy.NEVER_REDIRECT;
+
+	/**
+	 * get the redirect policy in case of error (controls if the URL changes in case of displaying
+	 * an error)
+	 * 
+	 * @return redirect policy
+	 */
+	public RenderPageRequestHandler.RedirectPolicy getRedirectPolicy()
+	{
+		return redirectPolicy;
+	}
+
+	/**
+	 * set the redirect policy in case of error (you can control if the URL changes in case of
+	 * displaying an error)
+	 * 
+	 * @param redirectPolicy
+	 *            redirection policy
+	 */
+	public void setRedirectPolicy(RenderPageRequestHandler.RedirectPolicy redirectPolicy)
+	{
+		this.redirectPolicy = redirectPolicy;
+	}
+
 	public IRequestHandler map(Exception e)
+	{
+		try
+		{
+			return internalMap(e);
+		}
+		catch (RuntimeException e2)
+		{
+			// hmmm, we were already handling an exception! give up
+			logger.error("unexpected exception when handling another exception: " + e.getMessage(),
+				e);
+			return new ErrorCodeResponseHandler(500);
+		}
+
+	}
+
+	private IRequestHandler internalMap(Exception e)
 	{
 		if (e instanceof StalePageException)
 		{
 			// If the page was stale, just rerender it
+			// (the url should always be updated by an redirect in that case)
 			return new RenderPageRequestHandler(new PageProvider(((StalePageException)e).getPage()));
 		}
 		else if (e instanceof PageExpiredException)
 		{
-			return new RenderPageRequestHandler(new PageProvider(Application.get()
+			return createPageRequestHandler(new PageProvider(Application.get()
 				.getApplicationSettings()
 				.getPageExpiredErrorPage()));
 		}
 		else if (e instanceof AuthorizationException)
 		{
-			return new RenderPageRequestHandler(new PageProvider(Application.get()
+			return createPageRequestHandler(new PageProvider(Application.get()
 				.getApplicationSettings()
 				.getAccessDeniedPage()));
 		}
@@ -71,12 +117,12 @@ public class DefaultExceptionMapper implements IExceptionMapper
 			if (IExceptionSettings.SHOW_EXCEPTION_PAGE.equals(unexpectedExceptionDisplay))
 			{
 				Page currentPage = extractCurrentPage();
-				return new RenderPageRequestHandler(new PageProvider(new ExceptionErrorPage(e,
+				return createPageRequestHandler(new PageProvider(new ExceptionErrorPage(e,
 					currentPage)));
 			}
 			else if (IExceptionSettings.SHOW_INTERNAL_ERROR_PAGE.equals(unexpectedExceptionDisplay))
 			{
-				return new RenderPageRequestHandler(new PageProvider(
+				return createPageRequestHandler(new PageProvider(
 					application.getApplicationSettings().getInternalErrorPage()));
 			}
 			else
@@ -85,6 +131,11 @@ public class DefaultExceptionMapper implements IExceptionMapper
 				return new EmptyRequestHandler();
 			}
 		}
+	}
+
+	private RenderPageRequestHandler createPageRequestHandler(PageProvider pageProvider)
+	{
+		return new RenderPageRequestHandler(pageProvider, redirectPolicy);
 	}
 
 	/**

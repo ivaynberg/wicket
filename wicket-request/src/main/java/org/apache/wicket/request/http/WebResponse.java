@@ -21,8 +21,9 @@ import java.io.IOException;
 import javax.servlet.http.Cookie;
 
 import org.apache.wicket.request.Response;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.string.Strings;
-
+import org.apache.wicket.util.time.Duration;
 
 /**
  * Base class for web-related responses.
@@ -31,6 +32,9 @@ import org.apache.wicket.util.string.Strings;
  */
 public abstract class WebResponse extends Response
 {
+	// one year, maximum recommended cache duration in RFC-2616
+	public static final Duration MAX_CACHE_DURATION = Duration.days(365);
+
 	/**
 	 * Add a cookie to the web response
 	 * 
@@ -155,4 +159,92 @@ public abstract class WebResponse extends Response
 	 * Flushes the response.
 	 */
 	public abstract void flush();
+
+	/**
+	 * Make this response non-cacheable
+	 */
+	public void disableCaching()
+	{
+		setDateHeader("Date", System.currentTimeMillis());
+		setDateHeader("Expires", 0);
+		setHeader("Pragma", "no-cache");
+		setHeader("Cache-Control", "no-cache, no-store");
+	}
+
+	/**
+	 * Make this response cacheable
+	 *
+	 * @param duration
+	 *            maximum duration before the response must be invalidated by any caches.
+	 *            It should not exceed one year, based on
+	 *            <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html">RFC-2616</a>.
+	 * @param scope
+	 *            controls which caches are allowed to cache the response
+	 *
+	 * @see WebResponse#MAX_CACHE_DURATION
+	 */
+	public void enableCaching(Duration duration, WebResponse.CacheScope scope)
+	{
+		Args.notNull(duration, "duration");
+		Args.notNull(scope, "scope");
+
+		// do not exceed the maximum recommended value from RFC-2616
+		if(duration.compareTo(MAX_CACHE_DURATION) > 0)
+			duration = MAX_CACHE_DURATION;
+
+		// Get current time
+		long now = System.currentTimeMillis();
+
+		// Time of message generation
+		setDateHeader("Date", now);
+
+		// Time for cache expiry = now + duration
+		setDateHeader("Expires", now + duration.getMilliseconds());
+
+		// Enable caching and set max age
+		setHeader("Cache-Control", scope.cacheControl + ", max-age=" + duration.getMilliseconds());
+
+		// Let caches distinguish between compressed and uncompressed
+		// versions of the resource so they can serve them properly
+		setHeader("Vary", "Accept-Encoding");
+	}
+
+	/**
+	 * caching scope for data
+	 * <p/>
+	 * Unless the data is confidential, session-specific or user-specific the general advice is
+	 * to prefer value <code>PUBLIC</code> for best network performance.
+	 * <p/>
+	 * This value will basically affect the header [Cache-Control]. Details can be found
+	 *  <a href="http://palisade.plynt.com/issues/2008Jul/cache-control-attributes">here</a>
+	 * or in <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html">RFC-2616</a>.
+	 */
+	public static enum CacheScope
+	{
+		/**
+		 * use all caches (private + public)
+		 * <p/>
+		 * Use this value for caching if the data is not confidential or session-specific. It will allow
+		 * public caches to cache the data. In some versions of Firefox this will enable caching
+		 * of resources over SSL (details can be found
+		 * <a href="http://blog.pluron.com/2008/07/why-you-should.html">here</a>).
+		 */
+		 PUBLIC("public"),
+		 /**
+		 *	only use non-public caches
+		  * <p/>
+		  * Use this setting if the response is session-specific or confidential and you don't
+		  * want it to be cached on public caches or proxies. On some versions of Firefox this
+		  * will disable caching of any resources in over SSL connections.
+		 */
+		PRIVATE("private");
+
+		// value for Cache-Control header
+		private final String cacheControl;
+
+		CacheScope(String cacheControl)
+		{
+			this.cacheControl = cacheControl;
+		}
+	}
 }

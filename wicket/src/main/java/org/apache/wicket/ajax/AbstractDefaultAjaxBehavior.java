@@ -181,7 +181,7 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 
 		if (!Strings.isEmpty(indicatorId))
 		{
-			String hide = ";wicketHide('" + indicatorId + "');";
+			String hide = ";Wicket.hideIncrementally('" + indicatorId + "');";
 			success = success + hide;
 			failure = failure + hide;
 		}
@@ -223,9 +223,22 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 
 		if (!Strings.isEmpty(indicatorId))
 		{
-			call = new AppendingStringBuffer("wicketShow('").append(indicatorId)
-				.append("');")
+			final AppendingStringBuffer indicatorWithPrecondition = new AppendingStringBuffer(
+				"if (");
+			if (precondition != null)
+			{
+				indicatorWithPrecondition.append("function(){").append(precondition).append("}()");
+			}
+			else
+			{
+				indicatorWithPrecondition.append("true");
+			}
+			indicatorWithPrecondition.append(") { Wicket.showIncrementally('")
+				.append(indicatorId)
+				.append("');}")
 				.append(call);
+
+			call = indicatorWithPrecondition;
 		}
 
 		if (decorator != null)
@@ -278,6 +291,7 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 	{
 		WebApplication app = (WebApplication)getComponent().getApplication();
 		AjaxRequestTarget target = app.newAjaxRequestTarget(getComponent().getPage());
+
 		RequestCycle requestCycle = RequestCycle.get();
 		requestCycle.scheduleRequestHandlerAfterCurrent(target);
 
@@ -320,7 +334,7 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 	 *            time span within which the javascript block will only execute once
 	 * @return wrapped javascript
 	 */
-	public static final CharSequence throttleScript(CharSequence script, String throttleId,
+	public static CharSequence throttleScript(CharSequence script, String throttleId,
 		Duration throttleDelay)
 	{
 		if (Strings.isEmpty(script))
@@ -343,6 +357,6 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 			.append(throttleDelay.getMilliseconds())
 			.append(", function() { ")
 			.append(script)
-			.append("});");
+			.append("}.bind(this));");
 	}
 }

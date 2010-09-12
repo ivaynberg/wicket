@@ -25,7 +25,7 @@ import org.apache.wicket.markup.loader.DefaultMarkupLoader;
 import org.apache.wicket.markup.loader.IMarkupLoader;
 import org.apache.wicket.markup.parser.IMarkupFilter;
 import org.apache.wicket.markup.parser.XmlPullParser;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.resource.IResourceStream;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
 import org.slf4j.Logger;
@@ -137,6 +137,16 @@ public class MarkupFactory
 	}
 
 	/**
+	 * return if markup cache has been initialized yet
+	 *
+	 * @return <code>true</code> if markup cache was already initialized, <code>false</code> otherwise
+	 */
+	public boolean hasMarkupCache()
+	{
+		return markupCache != null;
+	}
+
+	/**
 	 * Gets a fresh markup stream that contains the (immutable) markup resource for this class.
 	 * 
 	 * @param container
@@ -167,8 +177,8 @@ public class MarkupFactory
 	public final Markup getMarkup(final MarkupContainer container, final Class<?> clazz,
 		final boolean enforceReload)
 	{
-		Checks.argumentNotNull(container, "container");
-		Checks.argumentNotNull(clazz, "clazz");
+		Args.notNull(container, "container");
+		Args.notNull(clazz, "clazz");
 
 		IMarkupCache cache = getMarkupCache();
 		if (cache != null)

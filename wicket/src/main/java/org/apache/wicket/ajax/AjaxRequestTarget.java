@@ -38,6 +38,7 @@ import org.apache.wicket.markup.html.internal.HeaderResponse;
 import org.apache.wicket.markup.html.internal.HtmlHeaderContainer;
 import org.apache.wicket.markup.parser.filter.HtmlHeaderSectionHandler;
 import org.apache.wicket.markup.repeater.AbstractRepeater;
+import org.apache.wicket.protocol.http.RequestUtils;
 import org.apache.wicket.request.IRequestCycle;
 import org.apache.wicket.request.IRequestHandler;
 import org.apache.wicket.request.Response;
@@ -51,6 +52,7 @@ import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.ResourceReference;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.string.AppendingStringBuffer;
 import org.apache.wicket.util.string.Strings;
 import org.apache.wicket.util.visit.IVisit;
@@ -259,7 +261,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 
 	/**
 	 * 
-	 * @see org.apache.wicket.request.target.component.IPageRequestTarget#getPage()
+	 * @see org.apache.wicket.request.handler.IPageRequestHandler#getPage()
 	 */
 	public Page getPage()
 	{
@@ -273,6 +275,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 	 */
 	public AjaxRequestTarget(Page page)
 	{
+		Args.notNull(page, "page");
 		this.page = page;
 		Response response = RequestCycle.get().getResponse();
 		encodingBodyResponse = new AjaxResponse(response);
@@ -440,7 +443,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 	}
 
 	/**
-	 * @see org.apache.wicket.request.IRequestHandler#detach(org.apache.wicket.request.cycle.RequestCycle)
+	 * @see org.apache.wicket.request.handler.IPageRequestHandler#detach(org.apache.wicket.request.IRequestCycle)
 	 */
 	public void detach(final IRequestCycle requestCycle)
 	{
@@ -515,7 +518,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		 * @param target
 		 */
 		public void onTargetRespond(AjaxRequestTarget target);
-	};
+	}
 
 	/**
 	 * Register the given respond listener. The listener's
@@ -530,86 +533,94 @@ public class AjaxRequestTarget implements IPageRequestHandler
 	}
 
 	/**
-	 * @see org.apache.wicket.request.IRequestHandler#respond(org.apache.wicket.request.cycle.RequestCycle)
+	 * @see org.apache.wicket.request.handler.IPageRequestHandler#respond(org.apache.wicket.request.IRequestCycle)
 	 */
 	public final void respond(final IRequestCycle requestCycle)
 	{
-		RequestCycle rc = (RequestCycle)requestCycle;
-		Url oldBaseURL = rc.getUrlRenderer().getBaseUrl();
-		WebRequest request = (WebRequest)requestCycle.getRequest();
-		Url baseURL = Url.parse(request.getHeader("Wicket-Ajax-BaseURL"), request.getCharset());
+		// do not increment page id during ajax processing
+		boolean frozen = page.setFreezePageId(true);
 
-		rc.getUrlRenderer().setBaseUrl(baseURL);
-
-		final WebResponse response = (WebResponse)requestCycle.getResponse();
-
-		if (markupIdToComponent.values().contains(page))
+		try
 		{
-			// the page itself has been added to the request target, we simply issue a redirect back
-			// to the page
-			IRequestHandler handler = new RenderPageRequestHandler(new PageProvider(page));
-			final String url = rc.urlFor(handler).toString();
-			response.sendRedirect(url);
-			return;
-		}
+			RequestCycle rc = (RequestCycle)requestCycle;
+			Url oldBaseURL = rc.getUrlRenderer().getBaseUrl();
+			WebRequest request = (WebRequest)requestCycle.getRequest();
+			Url baseURL = Url.parse(request.getHeader("Wicket-Ajax-BaseURL"), request.getCharset());
 
-		for (ITargetRespondListener listener : respondListeners)
+			rc.getUrlRenderer().setBaseUrl(baseURL);
+
+			final WebResponse response = (WebResponse)requestCycle.getResponse();
+
+			if (markupIdToComponent.values().contains(page))
+			{
+				// the page itself has been added to the request target, we simply issue a redirect back
+				// to the page
+				IRequestHandler handler = new RenderPageRequestHandler(new PageProvider(page));
+				final String url = rc.urlFor(handler).toString();
+				response.sendRedirect(url);
+				return;
+			}
+
+			for (ITargetRespondListener listener : respondListeners)
+			{
+				listener.onTargetRespond(this);
+			}
+
+			final Application app = Application.get();
+
+			// Determine encoding
+			final String encoding = app.getRequestCycleSettings().getResponseRequestEncoding();
+
+			// Set content type based on markup type for page
+			response.setContentType("text/xml; charset=" + encoding);
+
+			// Make sure it is not cached by a client
+			response.disableCaching();
+
+			response.write("<?xml version=\"1.0\" encoding=\"");
+			response.write(encoding);
+			response.write("\"?>");
+			response.write("<ajax-response>");
+
+			// invoke onbeforerespond event on listeners
+			fireOnBeforeRespondListeners();
+
+			// normal behavior
+			Iterator<CharSequence> it = prependJavascripts.iterator();
+			while (it.hasNext())
+			{
+				CharSequence js = it.next();
+				respondInvocation(response, js);
+			}
+
+			// process added components
+			respondComponents(response);
+
+			fireOnAfterRespondListeners(response);
+
+			// execute the dom ready javascripts as first javascripts
+			// after component replacement
+			it = domReadyJavascripts.iterator();
+			while (it.hasNext())
+			{
+				CharSequence js = it.next();
+				respondInvocation(response, js);
+			}
+			it = appendJavascripts.iterator();
+			while (it.hasNext())
+			{
+				CharSequence js = it.next();
+				respondInvocation(response, js);
+			}
+
+			response.write("</ajax-response>");
+
+			rc.getUrlRenderer().setBaseUrl(oldBaseURL);
+		}
+		finally
 		{
-			listener.onTargetRespond(this);
+			page.setFreezePageId(frozen);
 		}
-
-		final Application app = Application.get();
-
-		// Determine encoding
-		final String encoding = app.getRequestCycleSettings().getResponseRequestEncoding();
-
-		// Set content type based on markup type for page
-		response.setContentType("text/xml; charset=" + encoding);
-
-		// Make sure it is not cached by a client
-		response.setHeader("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-		response.setHeader("Cache-Control", "no-cache, must-revalidate");
-		response.setHeader("Pragma", "no-cache");
-
-		response.write("<?xml version=\"1.0\" encoding=\"");
-		response.write(encoding);
-		response.write("\"?>");
-		response.write("<ajax-response>");
-
-		// invoke onbeforerespond event on listeners
-		fireOnBeforeRespondListeners();
-
-		// normal behavior
-		Iterator<CharSequence> it = prependJavascripts.iterator();
-		while (it.hasNext())
-		{
-			CharSequence js = it.next();
-			respondInvocation(response, js);
-		}
-
-		// process added components
-		respondComponents(response);
-
-		fireOnAfterRespondListeners(response);
-
-		// execute the dom ready javascripts as first javascripts
-		// after component replacement
-		it = domReadyJavascripts.iterator();
-		while (it.hasNext())
-		{
-			CharSequence js = it.next();
-			respondInvocation(response, js);
-		}
-		it = appendJavascripts.iterator();
-		while (it.hasNext())
-		{
-			CharSequence js = it.next();
-			respondInvocation(response, js);
-		}
-
-		response.write("</ajax-response>");
-
-		rc.getUrlRenderer().setBaseUrl(oldBaseURL);
 	}
 
 	/**
@@ -621,10 +632,9 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		{
 			final Map<String, Component> components = Collections.unmodifiableMap(markupIdToComponent);
 
-			Iterator<IListener> it = listeners.iterator();
-			while (it.hasNext())
+			for (IListener listener : listeners)
 			{
-				(it.next()).onBeforeRespond(components, this);
+				listener.onBeforeRespond(components, this);
 			}
 		}
 	}
@@ -650,10 +660,9 @@ public class AjaxRequestTarget implements IPageRequestHandler
 				}
 			};
 
-			Iterator<IListener> it = listeners.iterator();
-			while (it.hasNext())
+			for (IListener listener : listeners)
 			{
-				(it.next()).onAfterRespond(components, jsresponse);
+				listener.onAfterRespond(components, jsresponse);
 			}
 		}
 	}
@@ -669,12 +678,10 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		// TODO: We might need to call prepareRender on all components upfront
 
 		// process component markup
-		Iterator<Map.Entry<String, Component>> it = markupIdToComponent.entrySet().iterator();
-		while (it.hasNext())
+		for (Map.Entry<String, Component> stringComponentEntry : markupIdToComponent.entrySet())
 		{
-			final Map.Entry<String, Component> entry = it.next();
-			final Component component = entry.getValue();
-			final String markupId = entry.getKey();
+			final Component component = stringComponentEntry.getValue();
+			//final String markupId = stringComponentEntry.getKey();
 
 			if (!containsAncestorFor(component))
 			{
@@ -803,7 +810,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 
 		// substitute our encoding response for the real one so we can capture
 		// component's markup in a manner safe for transport inside CDATA block
-		final Response originalResponse = response;
+		final Response originalResponse = response; // TODO no substitution, so what is this for?
 		encodingBodyResponse.reset();
 		RequestCycle.get().setResponse(encodingBodyResponse);
 
@@ -886,8 +893,6 @@ public class AjaxRequestTarget implements IPageRequestHandler
 	 */
 	private class AjaxHeaderResponse extends HeaderResponse
 	{
-		private static final long serialVersionUID = 1L;
-
 		private boolean checkHeaderRendering()
 		{
 			if (headerRendering == false)
@@ -1002,8 +1007,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		@Override
 		public void renderOnDomReadyJavascript(String javascript)
 		{
-			List<String> token = Arrays.asList(new String[] { "javascript-event", "window",
-					"domready", javascript });
+			List<String> token = Arrays.asList("javascript-event", "window", "domready", javascript);
 			if (wasRendered(token) == false)
 			{
 				domReadyJavascripts.add(javascript);
@@ -1018,8 +1022,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		@Override
 		public void renderOnLoadJavascript(String javascript)
 		{
-			List<String> token = Arrays.asList(new String[] { "javascript-event", "window", "load",
-					javascript });
+			List<String> token = Arrays.asList("javascript-event", "window", "load", javascript);
 			if (wasRendered(token) == false)
 			{
 				// execute the javascript after all other scripts are executed
@@ -1037,7 +1040,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		{
 			return RequestCycle.get().getResponse();
 		}
-	};
+	}
 
 	// whether a header contribution is being rendered
 	private boolean headerRendering = false;
@@ -1095,7 +1098,7 @@ public class AjaxRequestTarget implements IPageRequestHandler
 		}
 
 		private final transient AjaxRequestTarget target;
-	};
+	}
 
 	/**
 	 * 
@@ -1219,6 +1222,10 @@ public class AjaxRequestTarget implements IPageRequestHandler
 			if (requestCycle.getActiveRequestHandler() instanceof AjaxRequestTarget)
 			{
 				return (AjaxRequestTarget)requestCycle.getActiveRequestHandler();
+			}
+			else if (requestCycle.getRequestHandlerScheduledAfterCurrent() instanceof AjaxRequestTarget)
+			{
+				return (AjaxRequestTarget)requestCycle.getRequestHandlerScheduledAfterCurrent();
 			}
 		}
 		return null;

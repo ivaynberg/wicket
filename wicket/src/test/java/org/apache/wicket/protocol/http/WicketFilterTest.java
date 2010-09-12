@@ -99,7 +99,7 @@ public class WicketFilterTest extends TestCase
 				protected ResourceResponse newResourceResponse(Attributes attributes)
 				{
 					ResourceResponse response = super.newResourceResponse(attributes);
-					response.setCacheable(true);
+					response.setCacheDurationToMaximum();
 					return response;
 				}
 			};
@@ -143,7 +143,7 @@ public class WicketFilterTest extends TestCase
 	{
 		try
 		{
-			return new WebXmlFile().getFilterPath(string, in);
+			return new WebXmlFile().getFilterPath(false, string, in);
 		}
 		catch (ParserConfigurationException ex)
 		{

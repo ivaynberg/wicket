@@ -62,7 +62,7 @@ public abstract class BaseTree extends AbstractTree
 	 * @param id
 	 * @param model
 	 */
-	public BaseTree(String id, IModel<TreeModel> model)
+	public BaseTree(String id, IModel<? extends TreeModel> model)
 	{
 		super(id, model);
 	}
@@ -193,6 +193,7 @@ public abstract class BaseTree extends AbstractTree
 	{
 		private static final long serialVersionUID = 1L;
 
+		// TODO this field is not serializable but nested inside an serializable component
 		private final Object node;
 		private final int level;
 
@@ -255,7 +256,7 @@ public abstract class BaseTree extends AbstractTree
 				response.write("<td class=\"line\">");
 			}
 		}
-	};
+	}
 
 	/**
 	 * Creates the junction link for given node. Also (optionally) creates the junction image. If

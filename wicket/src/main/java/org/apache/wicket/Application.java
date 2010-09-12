@@ -35,10 +35,9 @@ import org.apache.wicket.application.IComponentOnBeforeRenderListener;
 import org.apache.wicket.event.IEvent;
 import org.apache.wicket.event.IEventSink;
 import org.apache.wicket.javascript.DefaultJavascriptCompressor;
+import org.apache.wicket.markup.MarkupFactory;
 import org.apache.wicket.markup.MarkupParser;
 import org.apache.wicket.markup.html.EmptySrcAttributeCheckFilter;
-import org.apache.wicket.markup.html.IHeaderContributor;
-import org.apache.wicket.markup.html.IHeaderResponse;
 import org.apache.wicket.markup.html.image.resource.DefaultButtonImageResourceFactory;
 import org.apache.wicket.markup.parser.filter.EnclosureHandler;
 import org.apache.wicket.markup.parser.filter.RelativePathPrefixHandler;
@@ -92,7 +91,7 @@ import org.apache.wicket.settings.ISecuritySettings;
 import org.apache.wicket.settings.ISessionSettings;
 import org.apache.wicket.settings.Settings;
 import org.apache.wicket.util.IProvider;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.lang.PropertyResolver;
 import org.apache.wicket.util.lang.WicketObjects;
 import org.apache.wicket.util.time.Duration;
@@ -171,10 +170,6 @@ public abstract class Application implements UnboundListener, IEventSink
 
 	/** */
 	private List<IComponentOnAfterRenderListener> componentOnAfterRenderListeners;
-
-	/** @deprecated will be removed in 1.5; see IHeaderRenderStrategy */
-	@Deprecated
-	private List<IHeaderContributor> renderHeadListeners;
 
 	/** root mapper */
 	private IRequestMapper rootRequestMapper;
@@ -885,7 +880,10 @@ public abstract class Application implements UnboundListener, IEventSink
 		// Clear caches of Class keys so the classloader can be garbage
 		// collected (WICKET-625)
 		PropertyResolver.destroy(this);
-		getMarkupSettings().getMarkupFactory().getMarkupCache().shutdown();
+		MarkupFactory markupFactory = getMarkupSettings().getMarkupFactory();
+
+		if (markupFactory.hasMarkupCache())
+			markupFactory.getMarkupCache().shutdown();
 
 		onDestroy();
 
@@ -1153,57 +1151,6 @@ public abstract class Application implements UnboundListener, IEventSink
 	}
 
 	/**
-	 * Adds a listener that will be invoked for every header response
-	 * 
-	 * @param listener
-	 * @deprecated will be removed in 1.5; see IHeaderRenderStrategy
-	 */
-	@Deprecated
-	public final void addRenderHeadListener(final IHeaderContributor listener)
-	{
-		if (renderHeadListeners == null)
-		{
-			renderHeadListeners = new ArrayList<IHeaderContributor>();
-		}
-		renderHeadListeners.add(listener);
-	}
-
-	/**
-	 * 
-	 * @param listener
-	 * @deprecated will be removed in 1.5; see IHeaderRenderStrategy
-	 */
-	@Deprecated
-	public void removeRenderHeadListener(final IHeaderContributor listener)
-	{
-		if (renderHeadListeners != null)
-		{
-			renderHeadListeners.remove(listener);
-			if (renderHeadListeners.isEmpty())
-			{
-				renderHeadListeners = null;
-			}
-		}
-	}
-
-	/**
-	 * INTERNAL
-	 * 
-	 * @param response
-	 */
-	public void notifyRenderHeadListener(final IHeaderResponse response)
-	{
-		if (renderHeadListeners != null)
-		{
-			for (Iterator<IHeaderContributor> iter = renderHeadListeners.iterator(); iter.hasNext();)
-			{
-				IHeaderContributor listener = iter.next();
-				listener.renderHead(response);
-			}
-		}
-	}
-
-	/**
 	 * Converts the root mapper to a {@link ICompoundRequestMapper} if necessary and returns the
 	 * converted instance.
 	 * 
@@ -1312,7 +1259,7 @@ public abstract class Application implements UnboundListener, IEventSink
 
 	public final void setPageRendererProvider(IPageRendererProvider pageRendererProvider)
 	{
-		Checks.argumentNotNull(pageRendererProvider, "pageRendererProvider");
+		Args.notNull(pageRendererProvider, "pageRendererProvider");
 		this.pageRendererProvider = pageRendererProvider;
 	}
 
@@ -1450,7 +1397,7 @@ public abstract class Application implements UnboundListener, IEventSink
 
 	public Session fetchCreateAndSetSession(RequestCycle requestCycle)
 	{
-		Checks.argumentNotNull(requestCycle, "requestCycle");
+		Args.notNull(requestCycle, "requestCycle");
 
 		Session session = getSessionStore().lookup(requestCycle.getRequest());
 		if (session == null)
@@ -1560,7 +1507,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	 */
 	public final void setName(String name)
 	{
-		Checks.argumentNotEmpty(name, "name");
+		Args.notEmpty(name, "name");
 
 		if (this.name != null)
 		{

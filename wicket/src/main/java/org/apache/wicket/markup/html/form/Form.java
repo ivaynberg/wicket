@@ -50,8 +50,10 @@ import org.apache.wicket.util.string.Strings;
 import org.apache.wicket.util.string.interpolator.MapVariableInterpolator;
 import org.apache.wicket.util.upload.FileUploadBase.SizeLimitExceededException;
 import org.apache.wicket.util.upload.FileUploadException;
+import org.apache.wicket.util.visit.ClassVisitFilter;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
+import org.apache.wicket.util.visit.Visits;
 import org.apache.wicket.validation.IValidatorAddListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -445,10 +447,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	public final void clearInput()
 	{
 		// Visit all the (visible) form components and clear the input on each.
-		visitFormComponentsPostOrder(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponentsPostOrder(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				if (formComponent.isVisibleInHierarchy())
 				{
@@ -607,6 +608,21 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	 */
 	public Bytes getMaxSize()
 	{
+		Bytes maxSize = this.maxSize;
+		if (maxSize == null)
+		{
+			maxSize = visitChildren(Form.class, new IVisitor<Form<?>, Bytes>()
+			{
+				public void component(Form<?> component, IVisit<Bytes> visit)
+				{
+					Bytes maxSize = component.getMaxSize();
+					if (maxSize != null)
+					{
+						visit.stop(maxSize);
+					}
+				}
+			});
+		}
 		if (maxSize == null)
 		{
 			return getApplication().getApplicationSettings().getDefaultMaximumUploadSize();
@@ -803,10 +819,10 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 			{
 				public void component(final FormComponent<?> formComponent, final IVisit<Void> visit)
 				{
-					parameters.removeNamedParameter(formComponent.getInputName());
+					parameters.remove(formComponent.getInputName());
 				}
 			});
-			parameters.removeNamedParameter(getHiddenFieldId());
+			parameters.remove(getHiddenFieldId());
 		}
 	}
 
@@ -976,10 +992,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 		super.setVersioned(isVersioned);
 
 		// Search for FormComponents like TextField etc.
-		visitFormComponents(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponents(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				formComponent.setVersioned(isVersioned);
 			}
@@ -1131,10 +1146,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	 */
 	private void inputChanged()
 	{
-		visitFormComponentsPostOrder(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponentsPostOrder(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				if (formComponent.isVisibleInHierarchy())
 				{
@@ -1224,24 +1238,18 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 		}
 
 		// Model was successfully updated with valid data
-		formToProcess.onSubmit();
 
-		// call onSubmit on nested forms
-		formToProcess.visitChildren(Form.class, new IVisitor<Form<?>, Void>()
+		Visits.visitComponentsPostOrder(this, new IVisitor<Form<?>, Void>()
 		{
-			public void component(final Form<?> component, final IVisit<Void> visit)
+			public void component(Form<?> form, IVisit<Void> visit)
 			{
-				Form<?> form = component;
 				if (form.isEnabledInHierarchy() && form.isVisibleInHierarchy())
 				{
+
 					form.onSubmit();
 				}
-				else
-				{
-					visit.dontGoDeeper();
-				}
 			}
-		});
+		}, new ClassVisitFilter(Form.class));
 	}
 
 	/**
@@ -1297,21 +1305,35 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 					if (component instanceof Form<?>)
 					{
 						Form<?> form = (Form<?>)component;
-						isMultiPart = (form.multiPart != 0);
+						if (form.isVisibleInHierarchy() && form.isEnabledInHierarchy())
+						{
+							isMultiPart = (form.multiPart != 0);
+						}
 					}
 					else if (component instanceof FormComponent<?>)
 					{
-						FormComponent<?> form = (FormComponent<?>)component;
-						isMultiPart = form.isMultiPart();
+						FormComponent<?> fc = (FormComponent<?>)component;
+						if (fc.isVisibleInHierarchy() && fc.isEnabledInHierarchy())
+						{
+							isMultiPart = fc.isMultiPart();
+						}
 					}
-					if (isMultiPart == true)
+
+					if (isMultiPart)
 					{
 						visit.stop(true);
 					}
 				}
 
 			});
-		return Boolean.TRUE.equals(anyEmbeddedMultipart);
+
+		boolean mp = Boolean.TRUE.equals(anyEmbeddedMultipart);
+
+		if (mp)
+		{
+			multiPart |= MULTIPART_HINT;
+		}
+		return mp;
 	}
 
 	/**
@@ -1394,10 +1416,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	protected void internalOnModelChanged()
 	{
 		// Visit all the form components and validate each
-		visitFormComponentsPostOrder(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponentsPostOrder(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				// If form component is using form model
 				if (formComponent.sameInnermostModel(Form.this))
@@ -1414,10 +1435,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	protected final void markFormComponentsInvalid()
 	{
 		// call invalidate methods of all nested form components
-		visitFormComponentsPostOrder(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponentsPostOrder(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				if (formComponent.isVisibleInHierarchy())
 				{
@@ -1464,10 +1484,9 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	private void internalMarkFormComponentsValid()
 	{
 		// call valid methods of all nested form components
-		visitFormComponentsPostOrder(new FormComponent.AbstractVisitor<Void>()
+		visitFormComponentsPostOrder(new IVisitor<FormComponent<?>, Void>()
 		{
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, IVisit<Void> visit)
 			{
 				if (formComponent.getForm() == Form.this && formComponent.isVisibleInHierarchy())
 				{
@@ -1608,7 +1627,8 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 			if (defaultSubmittingComponent instanceof Component)
 			{
 				final Component submittingComponent = (Component)defaultSubmittingComponent;
-				if (submittingComponent.isVisibleInHierarchy() && submittingComponent.isEnabled())
+				if (submittingComponent.isVisibleInHierarchy() &&
+					submittingComponent.isEnabledInHierarchy())
 				{
 					appendDefaultButtonField(markupStream, openTag);
 				}
@@ -1670,29 +1690,13 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	{
 	}
 
-	/**
-	 * @see org.apache.wicket.Component#onRender()
-	 */
 	@Override
-	protected void onRender()
+	protected void onBeforeRender()
 	{
 		// clear multipart hint, it will be set if necessary by the visitor
 		this.multiPart &= ~MULTIPART_HINT;
 
-		// Force multi-part on if any child form component is multi-part
-		visitFormComponents(new FormComponent.AbstractVisitor<Void>()
-		{
-			@Override
-			public void onFormComponent(FormComponent<?> formComponent, IVisit<Void> visit)
-			{
-				if (formComponent.isVisible() && formComponent.isMultiPart())
-				{
-					multiPart |= MULTIPART_HINT;
-				}
-			}
-		});
-
-		super.onRender();
+		super.onBeforeRender();
 	}
 
 	/**
@@ -1969,6 +1973,7 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	}
 
 	/** {@inheritDoc} */
+	@Override
 	public void renderHead(IHeaderResponse response)
 	{
 		if (!isRootForm() && isMultiPart())

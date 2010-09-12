@@ -25,7 +25,7 @@ import org.apache.wicket.request.component.IRequestablePage;
 import org.apache.wicket.request.handler.RenderPageRequestHandler.RedirectPolicy;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 
 /**
  * Request handler that invokes the listener interface on component and renders page afterwards.
@@ -53,8 +53,8 @@ public class ListenerInterfaceRequestHandler
 	public ListenerInterfaceRequestHandler(IPageAndComponentProvider pageComponentProvider,
 		RequestListenerInterface listenerInterface, Integer behaviorIndex)
 	{
-		Checks.argumentNotNull(pageComponentProvider, "pageComponentProvider");
-		Checks.argumentNotNull(listenerInterface, "listenerInterface");
+		Args.notNull(pageComponentProvider, "pageComponentProvider");
+		Args.notNull(listenerInterface, "listenerInterface");
 
 		this.pageComponentProvider = pageComponentProvider;
 		this.listenerInterface = listenerInterface;
@@ -106,7 +106,7 @@ public class ListenerInterfaceRequestHandler
 	}
 
 	/**
-	 * @see org.apache.org.apache.wicket.request.IRequestHandler#detach(org.apache.wicket.request.cycle.RequestCycle)
+	 * @see org.apache.wicket.request.IRequestHandler#detach(org.apache.wicket.request.IRequestCycle)
 	 */
 	public void detach(IRequestCycle requestCycle)
 	{
@@ -134,14 +134,15 @@ public class ListenerInterfaceRequestHandler
 	}
 
 	/**
-	 * @see org.apache.org.apache.wicket.request.IRequestHandler#respond(org.apache.wicket.request.cycle.RequestCycle)
+	 * @see org.apache.wicket.request.IRequestHandler#respond(org.apache.wicket.request.IRequestCycle)
 	 */
 	public void respond(final IRequestCycle requestCycle)
 	{
-		if (getComponent().getPage() == getPage())
+		final IRequestablePage page = getPage();
+		if (getComponent().getPage() == page)
 		{
-			if (((WebRequest)requestCycle.getRequest()).isAjax() == false &&
-				listenerInterface.isRenderPageAfterInvocation())
+			boolean isAjax = ((WebRequest)requestCycle.getRequest()).isAjax();
+			if (isAjax == false && listenerInterface.isRenderPageAfterInvocation())
 			{
 				// schedule page render after current request handler is done. this can be
 				// overridden
@@ -153,28 +154,55 @@ public class ListenerInterfaceRequestHandler
 					new PageProvider(getPage()), policy));
 			}
 
-			if (getBehaviorIndex() == null)
-			{
-				listenerInterface.invoke(getComponent());
-			}
-			else
-			{
-				try
-				{
-					IBehavior behavior = getComponent().getBehaviors().get(behaviorIndex);
-					listenerInterface.invoke(getComponent(), behavior);
-				}
-				catch (IndexOutOfBoundsException e)
-				{
-					throw new WicketRuntimeException("Couldn't find component behavior.");
-				}
+			/*
+			 * FIXME WICKET-NG the handling of page id freezing should be generalized to
+			 * RequestListenerInterface, but we may have to refactor it to pass in the request cycle
+			 * into the invoke method so we can access the request and figure out if it is ajax or
+			 * not.
+			 */
+			Boolean frozen = null;
 
+			if (isAjax)
+			{
+				// do not increment page id for ajax requests
+				frozen = page.setFreezePageId(true);
+			}
+
+			try
+			{
+				invokeListener();
+			}
+			finally
+			{
+				if(frozen != null)
+					page.setFreezePageId(frozen);
 			}
 		}
 		else
 		{
 			throw new WicketRuntimeException("Component " + getComponent() +
 				" has been removed from page.");
+		}
+	}
+
+	private void invokeListener()
+	{
+		if (getBehaviorIndex() == null)
+		{
+			listenerInterface.invoke(getComponent());
+		}
+		else
+		{
+			try
+			{
+				IBehavior behavior = getComponent().getBehaviors().get(behaviorIndex);
+				listenerInterface.invoke(getComponent(), behavior);
+			}
+			catch (IndexOutOfBoundsException e)
+			{
+				throw new WicketRuntimeException("Couldn't find component behavior.");
+			}
+
 		}
 	}
 }

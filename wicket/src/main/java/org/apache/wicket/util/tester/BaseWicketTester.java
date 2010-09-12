@@ -52,7 +52,6 @@ import org.apache.wicket.ajax.markup.html.AjaxFallbackLink;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.behavior.AbstractAjaxBehavior;
-import org.apache.wicket.behavior.BehaviorsUtil;
 import org.apache.wicket.behavior.IBehavior;
 import org.apache.wicket.feedback.FeedbackMessage;
 import org.apache.wicket.feedback.FeedbackMessages;
@@ -751,7 +750,7 @@ public class BaseWicketTester
 	 * @param link
 	 * @return
 	 */
-	public Url urlFor(AjaxLink link)
+	public Url urlFor(AjaxLink<?> link)
 	{
 		AbstractAjaxBehavior behavior = WicketTesterHelper.findAjaxEventBehavior(link, "onclick");
 		Url url = Url.parse(behavior.getCallbackUrl().toString(),
@@ -1181,6 +1180,10 @@ public class BaseWicketTester
 			}
 
 			AjaxSubmitLink link = (AjaxSubmitLink)linkComponent;
+
+			String pageRelativePath = link.getInputName();
+			request.getPostParameters().setParameterValue(pageRelativePath, "x");
+
 			submitAjaxFormSubmitBehavior(link,
 				(AjaxFormSubmitBehavior)WicketTesterHelper.findAjaxEventBehavior(link, "onclick"));
 		}
@@ -1349,8 +1352,9 @@ public class BaseWicketTester
 	public Result hasNoErrorMessage()
 	{
 		List<Serializable> messages = getMessages(FeedbackMessage.ERROR);
-		return isTrue("expect no error message, but contains\n" +
-			WicketTesterHelper.asLined(messages), messages.isEmpty());
+		return isTrue(
+			"expect no error message, but contains\n" + WicketTesterHelper.asLined(messages),
+			messages.isEmpty());
 	}
 
 	/**
@@ -1361,8 +1365,9 @@ public class BaseWicketTester
 	public Result hasNoInfoMessage()
 	{
 		List<Serializable> messages = getMessages(FeedbackMessage.INFO);
-		return isTrue("expect no info message, but contains\n" +
-			WicketTesterHelper.asLined(messages), messages.isEmpty());
+		return isTrue(
+			"expect no info message, but contains\n" + WicketTesterHelper.asLined(messages),
+			messages.isEmpty());
 	}
 
 	/**
@@ -1527,19 +1532,15 @@ public class BaseWicketTester
 			{
 				// get the AbstractAjaxBehaviour which is responsible for
 				// getting the contents of the lazy panel
-				List<IBehavior> behaviors = BehaviorsUtil.getBehaviors(component,
-					AbstractAjaxTimerBehavior.class);
+				List<AbstractAjaxTimerBehavior> behaviors = component.getBehaviors(AbstractAjaxTimerBehavior.class);
 				for (IBehavior b : behaviors)
 				{
-					if (b instanceof AbstractAjaxTimerBehavior)
+					log.debug("Triggering AjaxSelfUpdatingTimerBehavior: " +
+						component.getClassRelativePath());
+					AbstractAjaxTimerBehavior timer = (AbstractAjaxTimerBehavior)b;
+					if (!timer.isStopped())
 					{
-						log.debug("Triggering AjaxSelfUpdatingTimerBehavior: " +
-							component.getClassRelativePath());
-						AbstractAjaxTimerBehavior timer = (AbstractAjaxTimerBehavior)b;
-						if (!timer.isStopped())
-						{
-							executeBehavior(timer);
-						}
+						executeBehavior(timer);
 					}
 				}
 			}

@@ -25,7 +25,7 @@ import org.apache.wicket.request.mapper.info.PageComponentInfo;
 import org.apache.wicket.request.mapper.parameter.IPageParametersEncoder;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.mapper.parameter.PageParametersEncoder;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 
 /**
  * Encoder for mounted URL. The mount path can contain parameter placeholders, i.e.
@@ -70,9 +70,9 @@ public class MountedMapper extends AbstractBookmarkableMapper
 	public MountedMapper(String mountPath, Class<? extends IRequestablePage> pageClass,
 		IPageParametersEncoder pageParametersEncoder)
 	{
-		Checks.argumentNotEmpty(mountPath, "mountPath");
-		Checks.argumentNotNull(pageClass, "pageClass");
-		Checks.argumentNotNull(pageParametersEncoder, "pageParametersEncoder");
+		Args.notEmpty(mountPath, "mountPath");
+		Args.notNull(pageClass, "pageClass");
+		Args.notNull(pageParametersEncoder, "pageParametersEncoder");
 
 		this.pageParametersEncoder = pageParametersEncoder;
 		this.pageClass = new WeakReference<Class<? extends IRequestablePage>>(pageClass);
@@ -130,7 +130,7 @@ public class MountedMapper extends AbstractBookmarkableMapper
 					{
 						pageParameters = new PageParameters();
 					}
-					pageParameters.addNamedParameter(placeholder, url.getSegments().get(i));
+					pageParameters.add(placeholder, url.getSegments().get(i));
 				}
 			}
 
@@ -167,8 +167,8 @@ public class MountedMapper extends AbstractBookmarkableMapper
 			String placeholder = getPlaceholder(mountSegments[i]);
 			if (placeholder != null)
 			{
-				url.getSegments().set(i, copy.getNamedParameter(placeholder).toString(""));
-				copy.removeNamedParameter(placeholder);
+				url.getSegments().set(i, copy.get(placeholder).toString(""));
+				copy.remove(placeholder);
 			}
 		}
 

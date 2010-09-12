@@ -235,12 +235,9 @@ public class DatePicker extends AbstractBehavior
 		variables.put("hideOnSelect", hideOnSelect());
 		variables.put("showOnFieldClick", showOnFieldClick());
 		// variables for YUILoader
-		variables.put(
-				"basePath",
-				Strings.stripJSessionId(RequestCycle.get()
-						.urlFor(new ResourceReferenceRequestHandler(YUI)).toString()));
-		variables.put("wicketDatePath",
-				RequestCycle.get().urlFor(new ResourceReferenceRequestHandler(WICKET_DATE)));
+		variables.put("basePath",
+				Strings.stripJSessionId(RequestCycle.get().urlFor(YUI, null).toString()) + "/");
+		variables.put("wicketDatePath", RequestCycle.get().urlFor(WICKET_DATE, null));
 		if (Application.DEVELOPMENT.equals(Application.get().getConfigurationType()))
 		{
 			variables.put("filter", "filter: \"RAW\",");
@@ -334,10 +331,13 @@ public class DatePicker extends AbstractBehavior
 		// ajax requests to not render the yui calendar multiple times
 		if (AjaxRequestTarget.get() != null)
 		{
-			final String javascript = "var e = Wicket.$('" + getEscapedComponentMarkupId() + "Dp" +
+			final String escapedComponentMarkupId = getEscapedComponentMarkupId();
+			final String javascript = "var e = Wicket.$('" + escapedComponentMarkupId + "Dp" +
 					"'); if (e != null && typeof(e.parentNode) != 'undefined' && " +
 					"typeof(e.parentNode.parentNode != 'undefined')) " +
-					"e.parentNode.parentNode.removeChild(e.parentNode);";
+					"e.parentNode.parentNode.removeChild(e.parentNode);" + "YAHOO.wicket." +
+					escapedComponentMarkupId + "DpJs.destroy(); delete YAHOO.wicket." +
+					escapedComponentMarkupId + "DpJs;";
 
 			response.renderJavascript(javascript, null);
 		}

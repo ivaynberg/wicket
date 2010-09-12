@@ -102,22 +102,6 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	private static final Logger logger = LoggerFactory.getLogger(FormComponent.class);
 
 	/**
-	 * Visitor for traversing form components
-	 * 
-	 * @deprecated no longer a need for this base class
-	 */
-	@Deprecated
-	public static abstract class AbstractVisitor<R> implements IVisitor<FormComponent<?>, R>
-	{
-		public void component(final FormComponent<?> component, final IVisit<R> visit)
-		{
-			onFormComponent(component, visit);
-		}
-
-		protected abstract void onFormComponent(FormComponent<?> formComponent, IVisit<R> visit);
-	}
-
-	/**
 	 * {@link IErrorMessageSource} used for error messages against this form components.
 	 * 
 	 * @author ivaynberg
@@ -464,7 +448,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * @see IValidatorAddListener
 	 * 
 	 */
-	public final FormComponent<T> add(final IValidator<T> validator)
+	public final FormComponent<T> add(final IValidator<? super T> validator)
 	{
 		if (validator == null)
 		{
@@ -492,14 +476,14 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * @see IValidator
 	 * @see IValidatorAddListener
 	 */
-	public final FormComponent<T> add(final IValidator<T>... validators)
+	public final FormComponent<T> add(final IValidator<? super T>... validators)
 	{
 		if (validators == null)
 		{
 			throw new IllegalArgumentException("validator argument cannot be null");
 		}
 
-		for (IValidator<T> validator : validators)
+		for (IValidator<? super T> validator : validators)
 		{
 			add(validator);
 		}
@@ -772,7 +756,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 * 
 	 * @return List of validators
 	 */
-	public final List<IValidator<T>> getValidators()
+	public final List<IValidator<? super T>> getValidators()
 	{
 		final int size = validators_size();
 		if (size == 0)
@@ -781,7 +765,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 		}
 		else
 		{
-			final List<IValidator<T>> list = new ArrayList<IValidator<T>>(size);
+			final List<IValidator<? super T>> list = new ArrayList<IValidator<? super T>>(size);
 			for (int i = 0; i < size; i++)
 			{
 				list.add(validators_get(i));
@@ -828,7 +812,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 */
 	public final void inputChanged()
 	{
-		if (isVisibleInHierarchy() && isEnabled())
+		if (isVisibleInHierarchy() && isEnabledInHierarchy())
 		{
 			// Get input as String array
 			final String[] input = getInputAsArray();
@@ -1067,7 +1051,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	 *            IValidators or a single instance, for efficiency)
 	 */
 	@SuppressWarnings("unchecked")
-	private void validators_add(final IValidator<T> validator)
+	private void validators_add(final IValidator<? super T> validator)
 	{
 		if (validators == null)
 		{
@@ -1079,7 +1063,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 			final int size = validators_size();
 
 			// Create array that holds size + 1 elements
-			final IValidator<T>[] validators = new IValidator[size + 1];
+			final IValidator<? super T>[] validators = new IValidator[size + 1];
 
 			// Loop through existing validators copying them
 			for (int i = 0; i < size; i++)

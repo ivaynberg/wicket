@@ -43,7 +43,7 @@ import org.apache.wicket.request.handler.RenderPageRequestHandler;
 import org.apache.wicket.request.handler.resource.ResourceReferenceRequestHandler;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.ResourceReference;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +84,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 		 * @param requestCycle
 		 */
 		public void onDetach(RequestCycle requestCycle);
-	};
+	}
 
 	/**
 	 * Returns request cycle associated with current thread.
@@ -133,12 +133,12 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	{
 		super(context.getResponse());
 
-		Checks.argumentNotNull(context, "context");
+		Args.notNull(context, "context");
 
-		Checks.argumentNotNull(context.getRequest(), "context.request");
-		Checks.argumentNotNull(context.getResponse(), "context.response");
-		Checks.argumentNotNull(context.getRequestMapper(), "context.requestMapper");
-		Checks.argumentNotNull(context.getExceptionMapper(), "context.exceptionMapper");
+		Args.notNull(context.getRequest(), "context.request");
+		Args.notNull(context.getResponse(), "context.response");
+		Args.notNull(context.getRequestMapper(), "context.requestMapper");
+		Args.notNull(context.getExceptionMapper(), "context.exceptionMapper");
 
 		request = context.getRequest();
 		originalResponse = context.getResponse();
@@ -220,6 +220,9 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 				return true;
 			}
 
+			// Did not find any suitable handler, thus not executing the request
+			log.error("Unable to execute request. No suitable RequestHandler found. URL=" +
+				request.getUrl());
 		}
 		catch (Exception e)
 		{
@@ -230,7 +233,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 			}
 			else
 			{
-				log.error("Error during request processing", e);
+				log.error("Error during request processing. URL=" + request.getUrl(), e);
 			}
 			return true;
 		}
@@ -252,6 +255,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 		boolean result;
 		try
 		{
+			onBeginRequest();
 			result = processRequest();
 		}
 		finally
@@ -268,6 +272,8 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	 */
 	private void executeExceptionRequestHandler(final IRequestHandler handler, final int retryCount)
 	{
+		scheduleRequestHandlerAfterCurrent(null);
+
 		try
 		{
 			executeRequestHandler(handler);
@@ -398,8 +404,6 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	 * 
 	 * @param <C>
 	 * 
-	 * @see RequestCycle#urlFor(IPageMap, Class, PageParameters)
-	 * 
 	 * @param pageClass
 	 *            Class of page
 	 * @param parameters
@@ -434,8 +438,6 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	 * instantiate and render the page, it can be stored in a user's browser as a stable bookmark.
 	 * 
 	 * @param <C>
-	 * 
-	 * @see RequestCycle#urlFor(IPageMap, Class, PageParameters)
 	 * 
 	 * @param pageClass
 	 *            Class of page
@@ -493,6 +495,15 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 
 		try
 		{
+			onEndRequest();
+		}
+		catch (RuntimeException e)
+		{
+			log.error("Exception occurred during onAfterRequest", e);
+		}
+
+		try
+		{
 			super.detach();
 		}
 		finally
@@ -507,7 +518,6 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 				{
 					log.error("Error detaching DetachCallback", e);
 				}
-				;
 			}
 			set(null);
 		}
@@ -585,4 +595,20 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	public void onEvent(IEvent<?> event)
 	{
 	}
+
+	/**
+	 * Called when the request cycle object is beginning its response
+	 */
+	protected void onBeginRequest()
+	{
+	}
+
+	/**
+	 * Called when the request cycle object has finished its response
+	 */
+	protected void onEndRequest()
+	{
+	}
+
+
 }

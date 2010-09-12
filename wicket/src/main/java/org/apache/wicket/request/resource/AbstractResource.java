@@ -25,16 +25,18 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.WicketRuntimeException;
+import org.apache.wicket.protocol.http.RequestUtils;
 import org.apache.wicket.request.Response;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.settings.IResourceSettings;
 import org.apache.wicket.util.io.Streams;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
+import org.apache.wicket.util.time.Duration;
 
 /**
  * Convenience resource implementation. The subclass must implement
- * {@link #newResourceResponse(org.apache.wicket.ng.resource.IResource.Attributes)} method.
+ * {@link #newResourceResponse(org.apache.wicket.request.resource.IResource.Attributes)} method.
  * 
  * @author Matej Knopp
  */
@@ -53,6 +55,7 @@ public abstract class AbstractResource implements IResource
 	 * Override this method to return a {@link ResourceResponse} for the request.
 	 * 
 	 * @param attributes
+	 *            request attributes
 	 * @return resource data instance
 	 */
 	protected abstract ResourceResponse newResourceResponse(Attributes attributes);
@@ -73,8 +76,8 @@ public abstract class AbstractResource implements IResource
 		private long contentLength = -1;
 		private Date lastModified = null;
 		private WriteCallback writeCallback;
-		private boolean cacheable = true;
-		private long cacheDuration;
+		private Duration cacheDuration;
+		private WebResponse.CacheScope cacheScope;
 
 		/**
 		 * Construct.
@@ -82,6 +85,11 @@ public abstract class AbstractResource implements IResource
 		public ResourceResponse()
 		{
 			cacheDuration = Application.get().getResourceSettings().getDefaultCacheDuration();
+
+			// disallow caching for public caches. this behavior is similar to wicket 1.4:
+			// setting it to [PUBLIC] seems to be sexy but could potentially cache confidential
+			// data on public proxies for users migrating to 1.5
+			cacheScope = WebResponse.CacheScope.PRIVATE;
 		}
 
 		/**
@@ -89,6 +97,7 @@ public abstract class AbstractResource implements IResource
 		 * rendered and the code will be sent to client.
 		 * 
 		 * @param errorCode
+		 *            error code
 		 */
 		public void setError(Integer errorCode)
 		{
@@ -100,6 +109,7 @@ public abstract class AbstractResource implements IResource
 		 * not be rendered and the code and message will be sent to client.
 		 * 
 		 * @param errorCode
+		 *            error code
 		 * @param errorMessage
 		 *            error message
 		 */
@@ -108,7 +118,6 @@ public abstract class AbstractResource implements IResource
 			this.errorCode = errorCode;
 			this.errorMessage = errorMessage;
 		}
-
 
 		/**
 		 * @return error code or <code>null</code>
@@ -130,6 +139,7 @@ public abstract class AbstractResource implements IResource
 		 * Sets the file name of the resource.
 		 * 
 		 * @param fileName
+		 *            file name
 		 */
 		public void setFileName(String fileName)
 		{
@@ -150,10 +160,11 @@ public abstract class AbstractResource implements IResource
 		 * @see ContentDisposition
 		 * 
 		 * @param contentDisposition
+		 *            content disposition (attachment or inline)
 		 */
 		public void setContentDisposition(ContentDisposition contentDisposition)
 		{
-			Checks.argumentNotNull(contentDisposition, "contentDisposition");
+			Args.notNull(contentDisposition, "contentDisposition");
 			this.contentDisposition = contentDisposition;
 		}
 
@@ -170,6 +181,7 @@ public abstract class AbstractResource implements IResource
 		 * by the extension.
 		 * 
 		 * @param contentType
+		 *            content type (also known as mime type)
 		 */
 		public void setContentType(String contentType)
 		{
@@ -193,6 +205,7 @@ public abstract class AbstractResource implements IResource
 		 * indicates a textual resource.
 		 * 
 		 * @param textEncoding
+		 *            character encoding of text body
 		 */
 		public void setTextEncoding(String textEncoding)
 		{
@@ -212,6 +225,7 @@ public abstract class AbstractResource implements IResource
 		 * recommended to set it so that the browser can show download progress.
 		 * 
 		 * @param contentLength
+		 *            length of response body
 		 */
 		public void setContentLength(long contentLength)
 		{
@@ -233,6 +247,7 @@ public abstract class AbstractResource implements IResource
 		 * to client.
 		 * 
 		 * @param lastModified
+		 *            last modification date
 		 */
 		public void setLastModified(Date lastModified)
 		{
@@ -253,6 +268,7 @@ public abstract class AbstractResource implements IResource
 		 * In order for this method to work {@link #setLastModified(Date)} has to be called first.
 		 * 
 		 * @param attributes
+		 *            request attributes
 		 * @return <code>true</code> if the resource data does need to be written,
 		 *         <code>false</code> otherwise.
 		 */
@@ -264,7 +280,11 @@ public abstract class AbstractResource implements IResource
 
 			if (ifModifiedSince != null && lastModified != null)
 			{
-				// Round down to the nearest second for a proper compare
+				// [Last-Modified] headers have a maximum precision of one second
+				// so we have to truncate the milliseconds part for a proper compare.
+				// that's stupid, since changes within one second will not be reliably
+				// detected by the client ... any hint or clarification to improve this
+				// situation will be appreciated...
 				long modified = this.lastModified.getTime() / 1000 * 1000;
 
 				return ifModifiedSince.getTime() < modified;
@@ -276,43 +296,80 @@ public abstract class AbstractResource implements IResource
 		}
 
 		/**
-		 * Cachable resources are cached on client. This flag affects the <code>Expires</code> and
-		 * <code>Cache-Control</code> headers.
-		 * 
-		 * @see #setCacheDuration(int)
-		 * 
-		 * @param cacheable
+		 * disable caching
 		 */
-		public void setCacheable(boolean cacheable)
+		public void disableCaching()
 		{
-			this.cacheable = cacheable;
+			setCacheDuration(Duration.NONE);
 		}
 
 		/**
-		 * @return returns whether this resource is cacheable
+		 * set caching to maximum available duration
 		 */
-		public boolean isCacheable()
+		public void setCacheDurationToMaximum()
 		{
-			return cacheable;
+			cacheDuration = WebResponse.MAX_CACHE_DURATION;
 		}
 
 		/**
-		 * Sets the duration for which this resource should be cached on client (in seconds). #see
-		 * {@link IResourceSettings#setDefaultCacheDuration(int)}
-		 * 
-		 * @param cacheDuration
+		 * Controls how long this response may be cached
+		 *
+		 * @param duration
+		 *            caching duration in seconds
 		 */
-		public void setCacheDuration(long cacheDuration)
+		public void setCacheDuration(Duration duration)
 		{
-			this.cacheDuration = cacheDuration;
+			Args.notNull(duration, "duration");
+			this.cacheDuration = duration;
 		}
 
 		/**
-		 * @return duration for which the resource shoudl be cached on client (in seconds)
+		 * returns how long this resource may be cached
+		 * <p/>
+		 * The special value Duration.NONE means caching is disabled.
+		 *
+		 * @return duration for caching
+		 *
+		 * @see IResourceSettings#setDefaultCacheDuration(org.apache.wicket.util.time.Duration)
+		 * @see IResourceSettings#getDefaultCacheDuration()
 		 */
-		public long getCacheDuration()
+		public Duration getCacheDuration()
 		{
 			return cacheDuration;
+		}
+
+		/**
+		 * returns what kind of caches are allowed to cache the resource response
+		 * <p/>
+		 * resources are only cached at all if caching is enabled by setting a cache duration.
+		 *
+		 * @return cache scope
+		 *
+		 * @see org.apache.wicket.request.resource.AbstractResource.ResourceResponse#getCacheDuration()
+		 * @see org.apache.wicket.request.resource.AbstractResource.ResourceResponse#setCacheDuration(org.apache.wicket.util.time.Duration)
+		 * @see org.apache.wicket.request.http.WebResponse.CacheScope
+		 */
+		public WebResponse.CacheScope getCacheScope()
+		{
+			return cacheScope;
+		}
+
+		/**
+		 * controls what kind of caches are allowed to cache the response
+		 * <p/>
+		 * resources are only cached at all if caching is enabled by setting a cache duration.
+		 *
+		 * @param scope
+		 *            scope for caching
+		 *
+		 * @see org.apache.wicket.request.resource.AbstractResource.ResourceResponse#getCacheDuration()
+		 * @see org.apache.wicket.request.resource.AbstractResource.ResourceResponse#setCacheDuration(org.apache.wicket.util.time.Duration)
+		 * @see org.apache.wicket.request.http.WebResponse.CacheScope
+		 */
+		public void setCacheScope(WebResponse.CacheScope scope)
+		{
+			Args.notNull(scope, "scope");
+			this.cacheScope = scope;
 		}
 
 		/**
@@ -320,14 +377,15 @@ public abstract class AbstractResource implements IResource
 		 * data.
 		 * <p>
 		 * It is necessary to set the {@link WriteCallback} if
-		 * {@link #dataNeedsToBeWritten(org.apache.wicket.ng.resource.IResource.Attributes)} returns
-		 * <code>true</code> and {@link #setError(Integer)} has not been called.
+		 * {@link #dataNeedsToBeWritten(org.apache.wicket.request.resource.IResource.Attributes)}
+		 * returns <code>true</code> and {@link #setError(Integer)} has not been called.
 		 * 
 		 * @param writeCallback
+		 *            write callback
 		 */
-		public void setWriteCallback(WriteCallback writeCallback)
+		public void setWriteCallback(final WriteCallback writeCallback)
 		{
-			Checks.argumentNotNull(writeCallback, "writeCallback");
+			Args.notNull(writeCallback, "writeCallback");
 			this.writeCallback = writeCallback;
 		}
 
@@ -340,29 +398,44 @@ public abstract class AbstractResource implements IResource
 		}
 	}
 
-	protected void configureCache(WebRequest request, WebResponse response, ResourceResponse data,
-		Attributes attributes)
+	/**
+	 * Configure the web response header for client cache control.
+	 * 
+	 * @param request
+	 *            web request
+	 * @param response
+	 *            web response
+	 * @param data
+	 *            resource data
+	 * @param attributes
+	 *            request attributes
+	 */
+	protected void configureCache(final WebRequest request, final WebResponse response,
+		final ResourceResponse data, final Attributes attributes)
 	{
-		if (data.isCacheable())
+	    Duration duration = data.getCacheDuration();
+
+		if(duration.compareTo(Duration.NONE) > 0)
 		{
-			// If time is set also set cache headers.
-			response.setDateHeader("Expires", System.currentTimeMillis() +
-				(data.getCacheDuration() * 1000L));
-			response.setHeader("Cache-Control", "max-age=" + data.getCacheDuration());
+			response.enableCaching(duration, data.getCacheScope());
 		}
 		else
 		{
-			response.setHeader("Cache-Control", "no-cache, must-revalidate");
+			response.disableCaching();
 		}
 	}
 
-	public final void respond(Attributes attributes)
+	/**
+	 * 
+	 * @see org.apache.wicket.request.resource.IResource#respond(org.apache.wicket.request.resource.IResource.Attributes)
+	 */
+	public final void respond(final Attributes attributes)
 	{
+		// Get a "new" ResourceResponse to write a response
 		ResourceResponse data = newResourceResponse(attributes);
 
 		WebRequest request = (WebRequest)attributes.getRequest();
 		WebResponse response = (WebResponse)attributes.getResponse();
-
 
 		// 1. Last Modified
 		Date lastModified = data.getLastModified();
@@ -372,7 +445,6 @@ public abstract class AbstractResource implements IResource
 		}
 
 		// 2. Caching
-
 		configureCache(request, response, data, attributes);
 
 		if (!data.dataNeedsToBeWritten(attributes))
@@ -380,77 +452,73 @@ public abstract class AbstractResource implements IResource
 			response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
 			return;
 		}
-		else if (data.getErrorCode() != null)
+
+		if (data.getErrorCode() != null)
 		{
 			response.sendError(data.getErrorCode(), data.getErrorMessage());
+			return;
 		}
-		else
+
+		if (data.getWriteCallback() == null)
 		{
-			if (data.getWriteCallback() == null)
-			{
-				throw new IllegalStateException(
-					"ResourceData#setWriteCallback must be called for AbstractResource.");
-			}
-
-			String fileName = data.getFileName();
-			ContentDisposition disposition = data.getContentDisposition();
-			String mimeType = data.getContentType();
-			String encoding = null;
-
-
-			if (mimeType != null && mimeType.indexOf("text") != -1)
-			{
-				encoding = data.getTextEncoding();
-			}
-
-			long contentLength = data.getContentLength();
-
-			// 3. Content Disposition
-
-			if (ContentDisposition.ATTACHMENT == disposition)
-			{
-				response.setAttachmentHeader(fileName);
-			}
-			else if (ContentDisposition.INLINE == disposition)
-			{
-				response.setInlineHeader(fileName);
-			}
-
-			// 4. Mime Type (+ encoding)
-
-			if (mimeType != null)
-			{
-				if (encoding == null)
-				{
-					response.setContentType(mimeType);
-				}
-				else
-				{
-					response.setContentType(mimeType + "; charset=" + encoding);
-				}
-			}
-
-
-			// 5. Content Length
-
-			if (contentLength != -1)
-			{
-				response.setContentLength(contentLength);
-			}
-
-			// 6. Flush the response
-			// This is necessary for firefox if this resource is an image, otherwise it messes up
-			// other images on page
-			response.flush();
-
-			// 7. Write Data
-			data.getWriteCallback().writeData(attributes);
+			throw new IllegalStateException(
+				"ResourceData#setWriteCallback must be called for AbstractResource.");
 		}
+
+		String fileName = data.getFileName();
+		ContentDisposition disposition = data.getContentDisposition();
+		String mimeType = data.getContentType();
+		String encoding = null;
+
+		if (mimeType != null && mimeType.indexOf("text") != -1)
+		{
+			encoding = data.getTextEncoding();
+		}
+
+		long contentLength = data.getContentLength();
+
+		// 3. Content Disposition
+		if (ContentDisposition.ATTACHMENT == disposition)
+		{
+			response.setAttachmentHeader(fileName);
+		}
+		else if (ContentDisposition.INLINE == disposition)
+		{
+			response.setInlineHeader(fileName);
+		}
+
+		// 4. Mime Type (+ encoding)
+		if (mimeType != null)
+		{
+			if (encoding == null)
+			{
+				response.setContentType(mimeType);
+			}
+			else
+			{
+				response.setContentType(mimeType + "; charset=" + encoding);
+			}
+		}
+
+		// 5. Content Length
+		if (contentLength != -1)
+		{
+			response.setContentLength(contentLength);
+		}
+
+		// 6. Flush the response
+		// This is necessary for firefox if this resource is an image, otherwise it messes up
+		// other images on page
+		response.flush();
+
+		// 7. Write Data
+		data.getWriteCallback().writeData(attributes);
 	}
 
 	/**
 	 * Callback invoked when resource data needs to be written to response. Subclass needs to
-	 * implement the {@link #writeData(org.apache.wicket.ng.resource.IResource.Attributes)} method.
+	 * implement the {@link #writeData(org.apache.wicket.request.resource.IResource.Attributes)}
+	 * method.
 	 * 
 	 * @author Matej Knopp
 	 */
@@ -460,6 +528,7 @@ public abstract class AbstractResource implements IResource
 		 * Write the resource data to response.
 		 * 
 		 * @param attributes
+		 *            request attributes
 		 */
 		public abstract void writeData(Attributes attributes);
 
@@ -467,7 +536,9 @@ public abstract class AbstractResource implements IResource
 		 * Convenience method to write an {@link InputStream} to response.
 		 * 
 		 * @param attributes
+		 *            request attributes
 		 * @param stream
+		 *            input stream
 		 */
 		protected final void writeStream(Attributes attributes, InputStream stream)
 		{

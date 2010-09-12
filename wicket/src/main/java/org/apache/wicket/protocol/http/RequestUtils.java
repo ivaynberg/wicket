@@ -28,6 +28,7 @@ import org.apache.wicket.request.UrlDecoder;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.string.Strings;
+import org.apache.wicket.util.time.Duration;
 
 /**
  * Wicket Http specific utilities class.
@@ -46,20 +47,18 @@ public final class RequestUtils
 	 */
 	public static void decodeParameters(String queryString, PageParameters params)
 	{
-		final String[] paramTuples = queryString.split("&");
-		for (int t = 0; t < paramTuples.length; t++)
+		for (String paramTuple : Strings.split(queryString, '&'))
 		{
-			final String[] bits = paramTuples[t].split("=");
+			final String[] bits = Strings.split(paramTuple, '=');
+
 			if (bits.length == 2)
 			{
-				params.addNamedParameter(UrlDecoder.QUERY_INSTANCE.decode(bits[0],
-					getCurrentCharset()), UrlDecoder.QUERY_INSTANCE.decode(bits[1],
-					getCurrentCharset()));
+				params.add(UrlDecoder.QUERY_INSTANCE.decode(bits[0], getCurrentCharset()),
+				                         UrlDecoder.QUERY_INSTANCE.decode(bits[1], getCurrentCharset()));
 			}
 			else
 			{
-				params.addNamedParameter(UrlDecoder.QUERY_INSTANCE.decode(bits[0],
-					getCurrentCharset()), "");
+				params.add(UrlDecoder.QUERY_INSTANCE.decode(bits[0], getCurrentCharset()), "");
 			}
 		}
 	}
@@ -134,7 +133,7 @@ public final class RequestUtils
 				}
 			}
 		}
-		String newpath = Strings.join("/", newcomponents.toArray(new String[0]));
+		String newpath = Strings.join("/", newcomponents.toArray(new String[newcomponents.size()]));
 		if (path.endsWith("/"))
 		{
 			return newpath + "/";
@@ -159,7 +158,7 @@ public final class RequestUtils
 	 *            path, relative to requestPath
 	 * @return absolute path for given url
 	 */
-	public final static String toAbsolutePath(final String requestPath, String relativePagePath)
+	public static String toAbsolutePath(final String requestPath, String relativePagePath)
 	{
 		final StringBuffer result;
 		if (requestPath.endsWith("/"))

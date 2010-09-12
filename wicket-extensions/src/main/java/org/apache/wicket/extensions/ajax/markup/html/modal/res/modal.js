@@ -493,6 +493,15 @@ Wicket.Window.prototype = {
 		var modalWidth = this.window.offsetWidth;
 		var modalHeight = this.window.offsetHeight;
 		
+		if (modalWidth > width - 10) { 
+			this.window.style.width = (width - 10) + "px"; 
+			modalWidth = this.window.offsetWidth; 
+		} 
+		if (modalHeight > height - 40) { 
+			this.content.style.height = (height - 40) + "px"; 
+			modalHeight = this.window.offsetHeight; 
+		} 
+		
 		var left = (width / 2) - (modalWidth / 2) + scLeft;
 		var top = (height / 2) - (modalHeight / 2) + scTop;
 		if (left < 0) left = 0;
@@ -779,7 +788,7 @@ Wicket.Window.prototype = {
 		// can user close the window?
 		if (force != true && (!this.canClose() || !this.canCloseInternal()))
 			return;		
-			
+		
 		// if the update handler was set clean it
 		if (typeof(this.update) != "undefined")
 			window.clearInterval(this.update);
@@ -1131,7 +1140,7 @@ Wicket.Window.getMarkup = function(idWindow, idClassElement, idCaption, idConten
 							"<div class=\"w_content_1\" onmousedown=\"if (Wicket.Browser.isSafari()) { event.ignore = true; }  else { Wicket.stopEvent(event); } \">"+																			
 								"<div class=\"w_caption\"  id=\""+idCaption+"\">"+
 									"<a class=\"w_close\" href=\"#\"></a>"+									
-									"<span id=\""+idCaptionText+"\" class=\"w_captionText\"></span>"+
+									"<h3 id=\""+idCaptionText+"\" class=\"w_captionText\"></h3>"+
 								"</div>"+
 							
 								"<div class=\"w_content_2\">"+
@@ -1139,10 +1148,10 @@ Wicket.Window.getMarkup = function(idWindow, idClassElement, idCaption, idConten
 		 							"<div class=\"w_content\">";
 				if (isFrame) {
 					if (Wicket.Browser.isIELessThan7() || !Wicket.Browser.isIE()) {												
-						s+= "<iframe src='\/\/:' frameborder=\"0\" id='"+idContent+"' allowtransparency=\"false\" style=\"height: 200px\">"+
+						s+= "<iframe src='\/\/:' frameborder=\"0\" id='"+idContent+"' allowtransparency=\"false\" style=\"height: 200px\" class=\"wicket_modal\">"+
 										"</iframe>";
 					} else {
-						s+= "<iframe src='about:blank' frameborder=\"0\" id='"+idContent+"' allowtransparency=\"false\" style=\"height: 200px\">"+
+						s+= "<iframe src='about:blank' frameborder=\"0\" id='"+idContent+"' allowtransparency=\"false\" style=\"height: 200px\" class=\"wicket_modal\">"+
 						"</iframe>";
 					}
 				} else {
@@ -1264,6 +1273,9 @@ Wicket.Window.Mask.prototype = {
 			this.dontHide = true; 			
 		}
 		
+		this.shown=true;
+		this.focusDisabled=false;
+				
 		this.disableCoveredContent();
 	},
 	
@@ -1272,6 +1284,9 @@ Wicket.Window.Mask.prototype = {
 	 */
 	hide: function() {			
 
+		// cancel any pending tasks
+		this.cancelPendingTasks();
+		
 		// if the mask is visible and we can hide it
 		if (typeof(Wicket.Window.Mask.element) != "undefined" && typeof(this.dontHide) == "undefined") {
 	
@@ -1286,7 +1301,10 @@ Wicket.Window.Mask.prototype = {
 			Wicket.Window.Mask.element = null;
 		}
 		
+		this.shown=false;
+		
 		this.reenableCoveredContent();
+		
 	},
 	
 	// disable user interaction for content that is covered by the mask
@@ -1300,12 +1318,35 @@ Wicket.Window.Mask.prototype = {
 		this.doDisable(doc, Wicket.Window.current);
 	},
 	
+	tasks: [],
+	startTask: function (fn, delay) {
+		var taskId=setTimeout(function() { fn(); this.clearTask(taskId); }.bind(this), delay);
+		this.tasks.push(taskId);
+	},
+	clearTask: function (taskId) {
+		var index=-1;
+		for (var i=0;i<this.tasks.length;i++) {
+			if (this.tasks[i]==taskId) {
+				index=i;break;
+			}
+		}
+		if (index>=0) {
+			this.tasks.splice(index,1);
+		}
+	},
+	cancelPendingTasks: function() {
+		while (this.tasks.length>0) {
+			var taskId=this.tasks.shift();
+			clearTimeout(taskId);
+		}
+	},
+	
 	// disable user interaction for content that is covered by the mask inside the given document, taking into consideration that this modal window is or not in an iframe
 	// and has the given content
 	doDisable: function(doc, win) {
-		setTimeout(function() {this.hideSelectBoxes(doc, win)}.bind(this), 300);
-		setTimeout(function() {this.disableTabs(doc, win)}.bind(this), 400);
-		setTimeout(function() {this.disableFocus(doc, win)}.bind(this), 1000);
+		this.startTask(function() {this.hideSelectBoxes(doc, win)}.bind(this), 300);
+		this.startTask(function() {this.disableTabs(doc, win)}.bind(this), 400);
+		this.startTask(function() {this.disableFocus(doc, win)}.bind(this), 1000);
 	},
 	
 	// reenable user interaction for content that was covered by the mask
@@ -1364,6 +1405,10 @@ Wicket.Window.Mask.prototype = {
 	 * have always bigger z-order than any other elements).
 	 */
 	hideSelectBoxes : function(doc, win) {				
+		if (!this.shown) {
+			return;
+		}
+		
 		if (Wicket.Browser.isIE() && Wicket.Browser.isIE7() == false) {
 			this.boxes = new Array();
 			var selects = doc.getElementsByTagName("select");
@@ -1419,6 +1464,9 @@ Wicket.Window.Mask.prototype = {
 	 * Disable focus on all elements in document
 	 */
 	disableFocus: function(doc, win) {
+		if (!this.shown) {
+			return;
+		}
 		// explorer doesn't need this, because for IE disableTabs() is called.
 		// plus in IE this causes problems because it scrolls document		);
 		if (Wicket.Browser.isIE() == false) {			
@@ -1428,12 +1476,17 @@ Wicket.Window.Mask.prototype = {
 				this.disableFocusElement(body.childNodes[i], this.focusRevertList, win);
 			}
 		}
+		this.focusDisabled=true;
 	},
 	
 	/**
 	 * Enables focus on all elements where the focus has been disabled.
 	 */
 	enableFocus: function() {
+		if (this.focusDisabled==false) {
+			return;
+		}
+		
 		if (typeof(this.focusRevertList) != "undefined") {						
 			for (var i = 0; i < this.focusRevertList.length; ++i) {
 				var item = this.focusRevertList[i];
@@ -1448,6 +1501,10 @@ Wicket.Window.Mask.prototype = {
 	 * Disable tab indexes (ie).
 	 */
 	disableTabs: function (doc, win) {
+		if (!this.shown) {
+			return;
+		}
+		
 		if (typeof (this.tabbableTags) == "undefined") this.tabbableTags = new Array("A","BUTTON","TEXTAREA","INPUT","IFRAME", "SELECT");
 		if (Wicket.Browser.isIE()) {
 			this.disabledTabsRevertList = new Array();

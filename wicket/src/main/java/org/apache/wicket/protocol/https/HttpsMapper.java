@@ -21,7 +21,7 @@ import org.apache.wicket.request.IRequestHandler;
 import org.apache.wicket.request.IRequestMapper;
 import org.apache.wicket.request.Request;
 import org.apache.wicket.request.Url;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 
 /**
  * A {@link IRequestMapper} that will issue a redirect to secured communication (over https) if the
@@ -72,8 +72,8 @@ public class HttpsMapper implements IRequestMapper
 	 */
 	public HttpsMapper(final IRequestMapper delegate, final HttpsConfig httpsConfig)
 	{
-		Checks.argumentNotNull(delegate, "delegate");
-		Checks.argumentNotNull(httpsConfig, "httpsConfig");
+		Args.notNull(delegate, "delegate");
+		Args.notNull(httpsConfig, "httpsConfig");
 
 		this.delegate = delegate;
 		this.httpsConfig = httpsConfig;
@@ -92,9 +92,13 @@ public class HttpsMapper implements IRequestMapper
 			final IRequestHandler httpsHandler = checker.checkSecureIncoming(requestHandler,
 				httpsConfig);
 
-			// we need to persist the session before a redirect to https so the session lasts
-			// across both http and https calls.
-			Session.get().bind();
+			// XXX do we need to check if httpsHandler is instance of SwitchProtocolRequestHandler
+			if (httpsConfig.isPreferStateful())
+			{
+				// we need to persist the session before a redirect to https so the session lasts
+				// across both http and https calls.
+				Session.get().bind();
+			}
 
 			requestHandler = httpsHandler;
 		}

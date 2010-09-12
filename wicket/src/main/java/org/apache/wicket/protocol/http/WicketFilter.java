@@ -29,8 +29,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.wicket.ThreadContext;
 import org.apache.wicket.WicketRuntimeException;
-import org.apache.wicket.protocol.http.servlet.ServletWebRequest;
-import org.apache.wicket.protocol.http.servlet.ServletWebResponse;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
@@ -68,8 +66,6 @@ public class WicketFilter implements Filter
 
 	/** The name of the context parameter that specifies application factory class */
 	public static final String APP_FACT_PARAM = "applicationFactoryClassName";
-
-	static final String SERVLET_PATH_HOLDER = "<servlet>";
 
 	// Wicket's Application object
 	private WebApplication application;
@@ -127,9 +123,9 @@ public class WicketFilter implements Filter
 				// No redirect; process the request
 				application.set();
 
-				WebRequest webRequest = new ServletWebRequest(httpServletRequest, filterPath);
-				WebResponse webResponse = new HeaderBufferingWebResponse(new ServletWebResponse(
-					httpServletRequest, httpServletResponse));
+				WebRequest webRequest = application.newWebRequest(httpServletRequest, filterPath);
+				WebResponse webResponse = application.newWebResponse(httpServletRequest,
+					httpServletResponse);
 
 				RequestCycle requestCycle = application.createRequestCycle(webRequest, webResponse);
 				if (!requestCycle.processRequestAndDetach())
@@ -247,9 +243,28 @@ public class WicketFilter implements Filter
 	}
 
 	/**
+	 * If you do have a need to subclass, you may subclass {@link #init(boolean, FilterConfig)}
+	 * 
 	 * @see javax.servlet.Filter#init(javax.servlet.FilterConfig)
 	 */
-	public void init(final FilterConfig filterConfig) throws ServletException
+	public final void init(final FilterConfig filterConfig) throws ServletException
+	{
+		init(false, filterConfig);
+	}
+
+	/**
+	 * Servlets and Filters are treated essentially the same with Wicket. This is the entry point
+	 * for both of them.
+	 * 
+	 * @see #init(FilterConfig)
+	 * 
+	 * @param isServlet
+	 *            True if Servlet, false of Filter
+	 * @param filterConfig
+	 * @throws ServletException
+	 */
+	public void init(final boolean isServlet, final FilterConfig filterConfig)
+		throws ServletException
 	{
 		this.filterConfig = filterConfig;
 
@@ -261,8 +276,8 @@ public class WicketFilter implements Filter
 		// Allow the filterPath to tbe preset via setFilterPath()
 		if (filterPath == null)
 		{
-			filterPath = new WebXmlFile().getFilterPath(filterConfig);
-			if (filterPath == null)
+			filterPath = new WebXmlFile().getFilterPath(isServlet, filterConfig);
+			if ((filterPath == null) && log.isInfoEnabled())
 			{
 				log.info("Unable to parse filter mapping web.xml for " +
 					filterConfig.getFilterName() + ". " + "Configure with init-param " +

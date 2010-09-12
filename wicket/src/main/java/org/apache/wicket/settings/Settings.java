@@ -57,6 +57,7 @@ import org.apache.wicket.util.crypt.KeyInSessionSunJceCryptFactory;
 import org.apache.wicket.util.file.IResourceFinder;
 import org.apache.wicket.util.file.IResourcePath;
 import org.apache.wicket.util.file.Path;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.lang.Bytes;
 import org.apache.wicket.util.resource.locator.IResourceStreamLocator;
 import org.apache.wicket.util.resource.locator.ResourceStreamLocator;
@@ -308,16 +309,17 @@ public final class Settings
 	 */
 	private boolean outputMarkupContainerClassName = false;
 
-	private boolean addLastModifiedTimeToResourceReferenceUrl = false;
-
 	/** */
 	private Bytes defaultMaximumUploadSize = Bytes.MAX;
 
 	/** escape string for '..' within resource keys */
 	private String parentFolderPlaceholder = null;
 
+	// use timestamps on resource file names
+	private boolean useTimestampOnResourcesName = true;
+
 	/** Default cache duration */
-	private int defaultCacheDuration = 3600;
+	private Duration defaultCacheDuration = Duration.hours(1);
 
 	private MarkupFactory markupFactory;
 
@@ -1281,24 +1283,6 @@ public final class Settings
 	}
 
 	/**
-	 * 
-	 * @see org.apache.wicket.settings.IResourceSettings#setAddLastModifiedTimeToResourceReferenceUrl(boolean)
-	 */
-	public void setAddLastModifiedTimeToResourceReferenceUrl(boolean value)
-	{
-		addLastModifiedTimeToResourceReferenceUrl = value;
-	}
-
-	/**
-	 * 
-	 * @see org.apache.wicket.settings.IResourceSettings#getAddLastModifiedTimeToResourceReferenceUrl()
-	 */
-	public boolean getAddLastModifiedTimeToResourceReferenceUrl()
-	{
-		return addLastModifiedTimeToResourceReferenceUrl;
-	}
-
-	/**
 	 * @see org.apache.wicket.settings.IMarkupSettings#getThrowExceptionOnMissingXmlDeclaration()
 	 */
 	public boolean getThrowExceptionOnMissingXmlDeclaration()
@@ -1396,21 +1380,18 @@ public final class Settings
 	/**
 	 * @see org.apache.wicket.settings.IResourceSettings#getDefaultCacheDuration()
 	 */
-	public final int getDefaultCacheDuration()
+	public final Duration getDefaultCacheDuration()
 	{
 		return defaultCacheDuration;
 	}
 
 	/**
-	 * @see org.apache.wicket.settings.IResourceSettings#setDefaultCacheDuration(long)
+	 * @see org.apache.wicket.settings.IResourceSettings#setDefaultCacheDuration(org.apache.wicket.util.time.Duration)
 	 */
-	public final void setDefaultCacheDuration(int defaultDuration)
+	public final void setDefaultCacheDuration(Duration duration)
 	{
-		if (defaultDuration < 0)
-		{
-			throw new IllegalArgumentException("Parameter 'defaultDuration' must not be < 0");
-		}
-		defaultCacheDuration = defaultDuration;
+		Args.notNull(duration, "duration");
+		defaultCacheDuration = duration;
 	}
 
 	/**
@@ -1451,5 +1432,21 @@ public final class Settings
 	public void setMarkupFactory(final MarkupFactory factory)
 	{
 		markupFactory = factory;
+	}
+
+	/**
+	 * @see IResourceSettings#getUseTimestampOnResources()
+	 */
+	public boolean getUseTimestampOnResources()
+	{
+		return useTimestampOnResourcesName;
+	}
+
+	/**
+	 * @see org.apache.wicket.settings.IResourceSettings#setUseTimestampOnResources(boolean)
+	 */
+	public void setUseTimestampOnResources(boolean useTimestampOnResourcesName)
+	{
+		this.useTimestampOnResourcesName = useTimestampOnResourcesName;
 	}
 }

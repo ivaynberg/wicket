@@ -141,7 +141,7 @@ div.wicket-modal a.w_close:hover {
 	
 }
 
-div.wicket-modal span.w_captionText {
+div.wicket-modal h3.w_captionText {
 	height: 1.4em; 
 	position: absolute;
 	margin-left: 3px;
@@ -168,7 +168,7 @@ div.wicket-modal div.w_content {
 
 
 
-div.wicket-modal iframe {
+div.wicket-modal iframe.wicket_modal {
 	width: 100%; 
 	height: 400px; 			
 	padding: 0px; 

@@ -37,7 +37,7 @@ public class Home extends HangmanPage
 	public Home(final PageParameters parameters)
 	{
 		getSession().bind();
-		final String word = parameters.getNamedParameter("word").toOptionalString();
+		final String word = parameters.get("word").toOptionalString();
 		if (word == null)
 		{
 			getGame().newGame(5, new WordGenerator());
@@ -46,6 +46,6 @@ public class Home extends HangmanPage
 		{
 			getGame().newGame(5, new WordGenerator(new String[] { word }));
 		}
-		add(new BookmarkablePageLink("start", Guess.class));
+		add(new BookmarkablePageLink<Void>("start", Guess.class));
 	}
 }

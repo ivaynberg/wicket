@@ -21,7 +21,7 @@ import java.io.InputStream;
 
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.resource.IResourceStream;
 import org.apache.wicket.util.resource.IResourceStreamWriter;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
@@ -33,6 +33,8 @@ public class ResourceStreamResource extends AbstractResource
 {
 	private static final long serialVersionUID = 1L;
 
+	private static final Logger logger = LoggerFactory.getLogger(ResourceStreamResource.class);
+
 	private final IResourceStream stream;
 	private String fileName;
 	private ContentDisposition contentDisposition = ContentDisposition.INLINE;
@@ -41,7 +43,7 @@ public class ResourceStreamResource extends AbstractResource
 
 	public ResourceStreamResource(IResourceStream stream)
 	{
-		Checks.argumentNotNull(stream, "stream");
+		Args.notNull(stream, "stream");
 		this.stream = stream;
 	}
 
@@ -139,6 +141,4 @@ public class ResourceStreamResource extends AbstractResource
 			logger.error("Couldn't close ResourceStream", e);
 		}
 	}
-
-	private static final Logger logger = LoggerFactory.getLogger(ResourceStreamResource.class);
 }

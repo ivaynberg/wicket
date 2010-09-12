@@ -125,8 +125,6 @@ import org.slf4j.LoggerFactory;
  * methods such as onValidate(), onSubmit() and onError() (although only the latter two are likely
  * to be overridden in practice).
  * 
- * <li><b>onBeginRequest </b>- The {@link Component#onBeginRequest()} method is called.
- * 
  * <li><b>Form Submit </b>- If a Form has been submitted and the Component is a FormComponent, the
  * component's model is validated by a call to FormComponent.validate().
  * 
@@ -139,7 +137,6 @@ import org.slf4j.LoggerFactory;
  * Component becomes immutable. Attempts to alter the Component will result in a
  * WicketRuntimeException.
  * 
- * <li><b>onEndRequest </b>() - The {@link Component#onEndRequest()} method is called.
  * </ul>
  * 
  * <li><b>Component Models </b>- The primary responsibility of a component is to use its model (an
@@ -311,6 +308,9 @@ public abstract class Component
 		}
 	};
 
+	/** an unused flag */
+	private static final int FLAG_UNUSED0 = 0x20000000;
+
 	/** True when a component is being auto-added */
 	private static final int FLAG_AUTO = 0x0001;
 
@@ -405,7 +405,6 @@ public abstract class Component
 	 */
 	private static final int FLAG_VISIBILITY_ALLOWED = 0x40000000;
 
-	private static final int FLAG_ATTACHED = 0x20000000;
 	private static final int FLAG_DETACHING = 0x80000000;
 
 	/**
@@ -894,7 +893,7 @@ public abstract class Component
 	 * <p>
 	 * NOTE: Why should {@link #onBeforeRender()} not be used for this? Because if visibility of a
 	 * component is toggled inside {@link #onBeforeRender()} another method needs to be overridden
-	 * to make sure {@link #onBeforeRender()} will be invoked on ivisible components:
+	 * to make sure {@link #onBeforeRender()} will be invoked on invisible components:
 	 * 
 	 * <pre>
 	 * class MyComponent extends WebComponent
@@ -1126,7 +1125,7 @@ public abstract class Component
 
 			// clear the enabled in hierarchy cache as it may change as a result of form processing
 			// or other logic executed in onbeforerender (WICKET-2063)
-			setMetaData(Component.ENABLED_IN_HIERARCHY_CACHE_KEY, null);
+			clearEnabledInHierarchyCache();
 
 			onBeforeRender();
 			getApplication().notifyPostComponentOnBeforeRenderListeners(this);
@@ -1288,8 +1287,6 @@ public abstract class Component
 				getClass().getName() +
 				" has not called super.onDetach() in the override of onDetach() method");
 		}
-		setFlag(FLAG_ATTACHED, false);
-
 		setFlag(FLAG_CONFIGURED, false);
 
 		// always detach models because they can be attached without the
@@ -1314,7 +1311,7 @@ public abstract class Component
 		}
 
 		// clear out enabled state metadata
-		setMetaData(ENABLED_IN_HIERARCHY_CACHE_KEY, null);
+		clearEnabledInHierarchyCache();
 
 		// notify any detach listener
 		IDetachListener detachListener = getApplication().getFrameworkSettings()
@@ -2930,8 +2927,19 @@ public abstract class Component
 
 			// Change visibility
 			setFlag(FLAG_ENABLED, enabled);
+			onEnabledStateChanged();
 		}
 		return this;
+	}
+
+	void clearEnabledInHierarchyCache()
+	{
+		setMetaData(ENABLED_IN_HIERARCHY_CACHE_KEY, null);
+	}
+
+	void onEnabledStateChanged()
+	{
+		clearEnabledInHierarchyCache();
 	}
 
 	/**
@@ -3572,9 +3580,11 @@ public abstract class Component
 	{
 		if (!tag.getName().equalsIgnoreCase(name))
 		{
-			findMarkupStream().throwMarkupException(
-				"Component " + getId() + " must be applied to a tag of type '" + name + "', not " +
-					tag.toUserDebugString());
+			String msg = String.format("Component [%s] (path = [%s]) must be "
+				+ "applied to a tag of type [%s], not: %s", getId(), getPath(), name,
+				tag.toUserDebugString());
+
+			findMarkupStream().throwMarkupException(msg);
 		}
 	}
 
@@ -3598,9 +3608,11 @@ public abstract class Component
 			final String tagAttributeValue = tag.getAttributes().getString(key);
 			if (tagAttributeValue == null || !value.equalsIgnoreCase(tagAttributeValue))
 			{
-				findMarkupStream().throwMarkupException(
-					"Component " + getId() + " must be applied to a tag with '" + key +
-						"' attribute matching '" + value + "', not '" + tagAttributeValue + "'");
+				String msg = String.format("Component [%s] (path = [%s]) must be applied to a tag "
+					+ "with [%s] attribute matching [%s], not [%s]", getId(), getPath(), key,
+					value, tagAttributeValue);
+
+				findMarkupStream().throwMarkupException(msg);
 			}
 		}
 	}
@@ -3689,7 +3701,7 @@ public abstract class Component
 	 *            A class derived from IBehavior
 	 */
 	@SuppressWarnings("unchecked")
-	protected <M extends IBehavior> List<M> getBehaviors(Class<M> type)
+	public <M extends IBehavior> List<M> getBehaviors(Class<M> type)
 	{
 		List<? extends IBehavior> behaviors = getBehaviorsRawList();
 		if (behaviors == null)
@@ -3832,24 +3844,6 @@ public abstract class Component
 	 */
 	protected void internalOnModelChanged()
 	{
-	}
-
-	/**
-	 * Convenience method that sets the attached flags.
-	 * 
-	 * @param attached
-	 */
-	protected final void markAttached(boolean attached)
-	{
-		setFlag(FLAG_ATTACHED, attached);
-	}
-
-	/**
-	 * @return true if this component is attached
-	 */
-	protected final boolean isAttached()
-	{
-		return getFlag(FLAG_ATTACHED);
 	}
 
 	/**

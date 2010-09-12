@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.apache.wicket.Application;
@@ -34,6 +36,8 @@ import org.apache.wicket.markup.html.pages.AccessDeniedPage;
 import org.apache.wicket.markup.html.pages.InternalErrorPage;
 import org.apache.wicket.markup.html.pages.PageExpiredErrorPage;
 import org.apache.wicket.markup.resolver.AutoLinkResolver;
+import org.apache.wicket.protocol.http.servlet.ServletWebRequest;
+import org.apache.wicket.protocol.http.servlet.ServletWebResponse;
 import org.apache.wicket.request.IRequestHandler;
 import org.apache.wicket.request.IRequestMapper;
 import org.apache.wicket.request.Request;
@@ -43,6 +47,7 @@ import org.apache.wicket.request.handler.RenderPageRequestHandler;
 import org.apache.wicket.request.handler.render.PageRenderer;
 import org.apache.wicket.request.handler.render.WebPageRenderer;
 import org.apache.wicket.request.http.WebRequest;
+import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.MountedMapper;
 import org.apache.wicket.request.resource.ResourceReference;
 import org.apache.wicket.session.HttpSessionStore;
@@ -52,7 +57,7 @@ import org.apache.wicket.util.collections.MostRecentlyUsedMap;
 import org.apache.wicket.util.file.FileCleaner;
 import org.apache.wicket.util.file.IResourceFinder;
 import org.apache.wicket.util.file.WebApplicationPath;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.lang.Generics;
 import org.apache.wicket.util.watch.IModificationWatcher;
 import org.slf4j.Logger;
@@ -286,7 +291,7 @@ public abstract class WebApplication extends Application
 	@Deprecated
 	public final void mount(IRequestMapper mapper)
 	{
-		Checks.argumentNotNull(mapper, "mapper");
+		Args.notNull(mapper, "mapper");
 		getRootRequestMapperAsCompound().add(mapper);
 	}
 
@@ -349,6 +354,37 @@ public abstract class WebApplication extends Application
 	}
 
 	/**
+	 * Create a new WebRequest. Subclasses of WebRequest could e.g. decode and obfuscated URL which
+	 * has been encoded by an appropriate WebResponse.
+	 * 
+	 * @param servletRequest
+	 * @param filterPath
+	 *            the filter mapping read from web.xml
+	 * @return a WebRequest object
+	 */
+	protected WebRequest newWebRequest(final HttpServletRequest servletRequest,
+		final String filterPath)
+	{
+		return new ServletWebRequest(servletRequest, filterPath);
+	}
+
+	/**
+	 * Creates a WebResponse. Subclasses of WebRequest could e.g. encode wicket's default URL and
+	 * hide the details from the user. A appropriate WebRequest must be implemented and configured
+	 * to decode the encoded URL.
+	 * 
+	 * @param httpServletRequest
+	 * @param httpServletResponse
+	 * @return a WebResponse object
+	 */
+	protected WebResponse newWebResponse(final HttpServletRequest httpServletRequest,
+		final HttpServletResponse httpServletResponse)
+	{
+		return new HeaderBufferingWebResponse(new ServletWebResponse(httpServletRequest,
+			httpServletResponse));
+	}
+
+	/**
 	 * @see org.apache.wicket.Application#newSession(org.apache.wicket.request.Request,
 	 *      org.apache.wicket.request.Response)
 	 */
@@ -383,7 +419,7 @@ public abstract class WebApplication extends Application
 	 */
 	public final void setWicketFilter(final WicketFilter wicketFilter)
 	{
-		Checks.argumentNotNull(wicketFilter, "wicketFilter");
+		Args.notNull(wicketFilter, "wicketFilter");
 		this.wicketFilter = wicketFilter;
 		servletContext = wicketFilter.getFilterConfig().getServletContext();
 	}
@@ -476,11 +512,6 @@ public abstract class WebApplication extends Application
 		{
 			// Ignore - we're not allowed to read system properties.
 		}
-
-		/*
-		 * FIXME 1.4: roll in 'wicket.' into Application.CONFIGURATION, we should only support a
-		 * namespaced param. see WICKET-1317
-		 */
 
 		// If no system parameter check filter/servlet <init-param> and <context-param>
 		if (result == null)

@@ -17,95 +17,155 @@
 package org.apache.wicket.request.resource;
 
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.Session;
+import org.apache.wicket.util.lang.Generics;
 import org.apache.wicket.util.lang.Packages;
+import org.apache.wicket.util.resource.IResourceStream;
 import org.apache.wicket.util.resource.locator.IResourceStreamLocator;
+import org.apache.wicket.util.time.Time;
 
 public class PackageResourceReference extends ResourceReference
 {
 	private static final long serialVersionUID = 1L;
 
-	public PackageResourceReference(Class<?> scope, String name, Locale locale, String style,
-		String variation)
+	private transient ConcurrentMap<UrlAttributes, UrlAttributes> urlAttributesCacheMap;
+
+	/**
+	 * Construct.
+	 *
+	 * @param key
+	 */
+	public PackageResourceReference(final Key key)
+	{
+		super(key);
+	}
+
+	/**
+	 * Construct.
+	 *
+	 * @param scope
+	 * @param name
+	 * @param locale
+	 * @param style
+	 * @param variation
+	 */
+	public PackageResourceReference(final Class<?> scope, final String name, final Locale locale,
+		final String style, String variation)
 	{
 		super(scope, name, locale, style, variation);
 	}
 
-	public PackageResourceReference(Class<?> scope, String name)
+	/**
+	 * Construct.
+	 *
+	 * @param scope
+	 * @param name
+	 */
+	public PackageResourceReference(final Class<?> scope, final String name)
 	{
 		super(scope, name);
 	}
 
-	public PackageResourceReference(String name)
+	/**
+	 * Construct.
+	 *
+	 * @param name
+	 */
+	public PackageResourceReference(final String name)
 	{
 		super(name);
 	}
 
+	/**
+	 * @see org.apache.wicket.request.resource.ResourceReference#getResource()
+	 */
 	@Override
 	public IResource getResource()
 	{
 		return new PackageResource(getScope(), getName(), getLocale(), getStyle(), getVariation());
 	}
 
-	private UrlAttributes testResource(IResourceStreamLocator locator, Locale locale, String style,
-		String variation)
+	private StreamInfo lookupStream(IResourceStreamLocator locator,
+	                                Locale locale, String style, String variation)
 	{
 		String absolutePath = Packages.absolutePath(getScope(), getName());
-		if (locator.locate(getScope(), absolutePath, style, variation, locale, null, true) != null)
-		{
-			return new UrlAttributes(locale, style, variation);
-		}
-		else
-		{
+		IResourceStream stream = locator.locate(getScope(), absolutePath, style, variation, locale, null, true);
+
+		if (stream == null)
 			return null;
+
+		return new StreamInfo(stream, locale, style, variation);
+	}
+
+	private StreamInfo lookupStream(Locale locale, String style, String variation)
+	{
+		IResourceStreamLocator locator = Application.get()
+				.getResourceSettings()
+				.getResourceStreamLocator();
+
+		StreamInfo info;
+
+		info = lookupStream(locator, locale, style, variation);
+		if (info == null)
+		{
+			info = lookupStream(locator, locale, style, null);
 		}
+		if (info == null)
+		{
+			info = lookupStream(locator, locale, null, variation);
+		}
+		if (info == null)
+		{
+			info = lookupStream(locator, null, style, variation);
+		}
+		if (info == null)
+		{
+			info = lookupStream(locator, locale, null, null);
+		}
+		if (info == null)
+		{
+			info = lookupStream(locator, null, style, null);
+		}
+		if (info == null)
+		{
+			info = lookupStream(locator, null, null, variation);
+		}
+		return info;
 	}
 
 	private UrlAttributes getUrlAttributes(Locale locale, String style, String variation)
 	{
-		IResourceStreamLocator locator = Application.get()
-			.getResourceSettings()
-			.getResourceStreamLocator();
+		StreamInfo info = lookupStream(locale, style, variation);
 
-		UrlAttributes res;
+		if (info != null)
+			return new UrlAttributes(info.locale, info.style, info.variation);
 
-		res = testResource(locator, locale, style, variation);
-		if (res == null)
-		{
-			res = testResource(locator, locale, style, null);
-		}
-		if (res == null)
-		{
-			res = testResource(locator, locale, null, variation);
-		}
-		if (res == null)
-		{
-			res = testResource(locator, null, style, variation);
-		}
-		if (res == null)
-		{
-			res = testResource(locator, locale, null, null);
-		}
-		if (res == null)
-		{
-			res = testResource(locator, null, style, null);
-		}
-		if (res == null)
-		{
-			res = testResource(locator, null, null, variation);
-		}
-		if (res == null)
-		{
-			res = new UrlAttributes(null, null, null);
-		}
-		return res;
+		return new UrlAttributes(null, null, null);
 	}
 
-	private transient ConcurrentMap<UrlAttributes, UrlAttributes> urlAttributesCacheMap;
+	private Locale getCurrentLocale()
+	{
+		return getLocale() != null ? getLocale() : Session.get().getLocale();
+	}
+
+	private String getCurrentStyle()
+	{
+		return getStyle() != null ? getStyle() : Session.get().getStyle();
+	}
+
+	@Override
+	public Time getLastModified()
+	{
+		StreamInfo info = lookupStream(getCurrentLocale(), getCurrentStyle(), getVariation());
+
+		if (info == null)
+			return null;
+
+		return info.stream.lastModifiedTime();
+	}
 
 	@Override
 	public UrlAttributes getUrlAttributes()
@@ -118,7 +178,7 @@ public class PackageResourceReference extends ResourceReference
 
 		if (urlAttributesCacheMap == null)
 		{
-			urlAttributesCacheMap = new ConcurrentHashMap<UrlAttributes, UrlAttributes>();
+			urlAttributesCacheMap = Generics.newConcurrentHashMap();
 		}
 		UrlAttributes value = urlAttributesCacheMap.get(key);
 		if (value == null)
@@ -128,5 +188,21 @@ public class PackageResourceReference extends ResourceReference
 		}
 
 		return value;
+	}
+
+	private static class StreamInfo
+	{
+		public final IResourceStream stream;
+		public final Locale locale;
+		public final String style;
+		public final String variation;
+
+		public StreamInfo(IResourceStream stream, Locale locale, String style, String variation)
+		{
+			this.stream = stream;
+			this.locale = locale;
+			this.style = style;
+			this.variation = variation;
+		}
 	}
 }

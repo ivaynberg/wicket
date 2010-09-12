@@ -116,11 +116,8 @@ import org.slf4j.LoggerFactory;
  * @see org.apache.wicket.markup.html.WebPage
  * @see org.apache.wicket.MarkupContainer
  * @see org.apache.wicket.model.CompoundPropertyModel
- * @see org.apache.wicket.model.BoundCompoundPropertyModel
  * @see org.apache.wicket.Component
- * @see org.apache.wicket.version.IPageVersionManager
- * @see org.apache.wicket.version.undo.UndoPageVersionManager
- * 
+ *
  * @author Jonathan Locke
  * @author Chris Turner
  * @author Eelco Hillenius
@@ -404,15 +401,12 @@ public abstract class Page extends MarkupContainer
 		dirty(false);
 	}
 
-	/**
-	 * INTERNAL. Prevent marking page as dirty. Used to prevent incrementing page id during
-	 * REDIRECT_TO_RENDER rendering.
-	 * 
-	 * @param prevent
-	 */
-	private void preventDirty(boolean prevent)
+	/** {@inheritDoc} */
+	public boolean setFreezePageId(boolean freeze)
 	{
-		setFlag(FLAG_PREVENT_DIRTY, prevent);
+		boolean frozen = getFlag(FLAG_PREVENT_DIRTY);
+		setFlag(FLAG_PREVENT_DIRTY, freeze);
+		return frozen;
 	}
 
 	/**
@@ -451,8 +445,7 @@ public abstract class Page extends MarkupContainer
 	 * THIS METHOD IS NOT PART OF THE WICKET PUBLIC API. DO NOT CALL.
 	 * 
 	 * This method is called when a component was rendered standalone. If it is a <code>
-	 * MarkupContainer</code>
-	 * then the rendering for that container is checked.
+	 * MarkupContainer</code> then the rendering for that container is checked.
 	 * 
 	 * @param component
 	 * 
@@ -491,7 +484,6 @@ public abstract class Page extends MarkupContainer
 	}
 
 	/**
-	 * @see org.apache.wicket.session.pagemap.IPageMapEntry#getNumericId()
 	 * @deprecated
 	 */
 	@Deprecated
@@ -500,9 +492,6 @@ public abstract class Page extends MarkupContainer
 		return getPageId();
 	}
 
-	/**
-	 * @see org.apache.wicket.session.pagemap.IPageMapEntry#getPageClass()
-	 */
 	public final Class<? extends Page> getPageClass()
 	{
 		return getClass();
@@ -591,7 +580,7 @@ public abstract class Page extends MarkupContainer
 			pageClassToBookmarkableCache.put(getClass().getName(), bookmarkable);
 		}
 
-		return bookmarkable.booleanValue();
+		return bookmarkable;
 	}
 
 	/**
@@ -652,14 +641,12 @@ public abstract class Page extends MarkupContainer
 
 		if (stateless == null)
 		{
-			final Object[] returnArray = new Object[1];
 			Boolean returnValue = visitChildren(Component.class, new IVisitor<Component, Boolean>()
 			{
 				public void component(final Component component, final IVisit<Boolean> visit)
 				{
 					if (!component.isStateless())
 					{
-						returnArray[0] = component;
 						visit.stop(Boolean.FALSE);
 					}
 				}
@@ -683,7 +670,7 @@ public abstract class Page extends MarkupContainer
 			 */
 		}
 
-		return stateless.booleanValue();
+		return stateless;
 	}
 
 	/**
@@ -760,7 +747,7 @@ public abstract class Page extends MarkupContainer
 	 *            The page itself if it was a full page render or the container that was rendered
 	 *            standalone
 	 */
-	private final void checkRendering(final MarkupContainer renderedContainer)
+	private void checkRendering(final MarkupContainer renderedContainer)
 	{
 		// If the application wants component uses checked and
 		// the response is not a redirect
@@ -837,10 +824,9 @@ public abstract class Page extends MarkupContainer
 					}
 
 					// Now first test if the component has a sibling that is a transparent resolver.
-					Iterator<? extends Component> iterator2 = component.getParent().iterator();
-					while (iterator2.hasNext())
+					for (Object o : component.getParent())
 					{
-						Component sibling = iterator2.next();
+						Component sibling = (Component)o;
 						if (!sibling.isVisible())
 						{
 							if (sibling instanceof IComponentResolver)
@@ -850,8 +836,8 @@ public abstract class Page extends MarkupContainer
 								if (log.isDebugEnabled())
 								{
 									log.debug(
-										"Component {} wasn't rendered but most likely it has a transparent parent: {}",
-										component, sibling);
+											"Component {} wasn't rendered but most likely it has a transparent parent: {}",
+											component, sibling);
 								}
 								transparentContainerChildren.add(component);
 								iterator.remove();
@@ -877,11 +863,8 @@ public abstract class Page extends MarkupContainer
 
 	/**
 	 * Initializes Page by adding it to the Session and initializing it.
-	 * 
-	 * @param pageMap
-	 *            The page map to put this page in.
 	 */
-	private final void init()
+	private void init()
 	{
 		if (isBookmarkable())
 		{
@@ -1206,7 +1189,6 @@ public abstract class Page extends MarkupContainer
 	/**
 	 * 
 	 * @param component
-	 * @param change
 	 */
 	final void componentStateChanging(final Component component)
 	{
@@ -1301,7 +1283,7 @@ public abstract class Page extends MarkupContainer
 		if (getApplication().getRequestCycleSettings().getRenderStrategy() != RenderStrategy.REDIRECT_TO_BUFFER)
 		{
 			// don't increment page id for redirect to render and one pass render during rendering
-			preventDirty(true);
+			setFreezePageId(true);
 		}
 		try
 		{
@@ -1310,7 +1292,7 @@ public abstract class Page extends MarkupContainer
 		}
 		finally
 		{
-			preventDirty(false);
+			setFreezePageId(false);
 		}
 	}
 

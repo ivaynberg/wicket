@@ -373,14 +373,14 @@ public class FormTester
 		tester = wicketTester;
 
 		// fill blank String for Text Component.
-		workingForm.visitFormComponents(new FormComponent.AbstractVisitor<Void>()
+		workingForm.visitFormComponents(new IVisitor<FormComponent<?>, Void>()
 		{
-			@SuppressWarnings("unchecked")
-			@Override
-			public void onFormComponent(final FormComponent<?> formComponent, IVisit<Void> visit)
+			public void component(final FormComponent<?> formComponent, final IVisit<Void> visit)
 			{
-				// do nothing for invisible component
-				if (!formComponent.isVisibleInHierarchy())
+				// do nothing for invisible or disabled component -- the browser would not send any
+// parameter
+// for a disabled component
+				if (!(formComponent.isVisibleInHierarchy() && formComponent.isEnabledInHierarchy()))
 				{
 					return;
 				}
@@ -389,7 +389,7 @@ public class FormTester
 				// blank String if required
 				if (formComponent instanceof AbstractTextComponent)
 				{
-					if (Strings.isEmpty(formComponent.getValue()))
+					if (Strings.isEmpty(getFormComponentValue(formComponent)))
 					{
 						if (fillBlankString)
 						{
@@ -398,17 +398,17 @@ public class FormTester
 					}
 					else
 					{
-						setFormComponentValue(formComponent, formComponent.getValue());
+						setFormComponentValue(formComponent, getFormComponentValue(formComponent));
 					}
 				}
 				else if ((formComponent instanceof DropDownChoice) ||
 					(formComponent instanceof RadioChoice) || (formComponent instanceof CheckBox))
 				{
-					setFormComponentValue(formComponent, formComponent.getValue());
+					setFormComponentValue(formComponent, getFormComponentValue(formComponent));
 				}
 				else if (formComponent instanceof ListMultipleChoice)
 				{
-					final String[] modelValues = formComponent.getValue().split(
+					final String[] modelValues = getFormComponentValue(formComponent).split(
 						FormComponent.VALUE_SEPARATOR);
 					for (String modelValue : modelValues)
 					{
@@ -425,7 +425,7 @@ public class FormTester
 							if (checkGroupValues.contains(component.getDefaultModelObject()))
 							{
 								addFormComponentValue(formComponent,
-									((Check<?>)component).getValue());
+									getFormComponentValue((Check<?>)component));
 							}
 						}
 					});
@@ -446,7 +446,7 @@ public class FormTester
 								if (value.equals(component.getDefaultModelObject()))
 								{
 									addFormComponentValue(formComponent,
-										((Radio<?>)component).getValue());
+										getFormComponentValue((Radio<?>)component));
 									visit.stop();
 								}
 								else
@@ -459,6 +459,32 @@ public class FormTester
 				}
 			}
 
+			private String getFormComponentValue(final FormComponent<?> formComponent)
+			{
+				boolean oldEscape = formComponent.getEscapeModelStrings();
+				formComponent.setEscapeModelStrings(false);
+				String val = formComponent.getValue();
+				formComponent.setEscapeModelStrings(oldEscape);
+				return val;
+			}
+
+			private String getFormComponentValue(final Check<?> formComponent)
+			{
+				boolean oldEscape = formComponent.getEscapeModelStrings();
+				formComponent.setEscapeModelStrings(false);
+				String val = formComponent.getValue();
+				formComponent.setEscapeModelStrings(oldEscape);
+				return val;
+			}
+
+			private String getFormComponentValue(final Radio<?> formComponent)
+			{
+				boolean oldEscape = formComponent.getEscapeModelStrings();
+				formComponent.setEscapeModelStrings(false);
+				String val = formComponent.getValue();
+				formComponent.setEscapeModelStrings(oldEscape);
+				return val;
+			}
 		});
 		workingForm.detach();
 	}
@@ -614,6 +640,10 @@ public class FormTester
 		}
 	}
 
+	/**
+	 * @param checkBoxId
+	 * @param value
+	 */
 	public void setValue(String checkBoxId, boolean value)
 	{
 		setValue(checkBoxId, Boolean.toString(value));
@@ -745,8 +775,9 @@ public class FormTester
 	{
 		if (parameterExist(formComponent))
 		{
-			List<StringValue> values = tester.getRequest().getPostParameters().getParameterValues(
-				formComponent.getInputName());
+			List<StringValue> values = tester.getRequest()
+				.getPostParameters()
+				.getParameterValues(formComponent.getInputName());
 			// remove duplicated
 
 			HashSet<String> all = new HashSet<String>();
@@ -761,8 +792,9 @@ public class FormTester
 			{
 				values.add(StringValue.valueOf(val));
 			}
-			tester.getRequest().getPostParameters().setParameterValues(
-				formComponent.getInputName(), values);
+			tester.getRequest()
+				.getPostParameters()
+				.setParameterValues(formComponent.getInputName(), values);
 		}
 		else
 		{
@@ -792,8 +824,10 @@ public class FormTester
 	 */
 	private boolean parameterExist(FormComponent<?> formComponent)
 	{
-		String parameter = tester.getRequest().getPostParameters().getParameterValue(
-			formComponent.getInputName()).toString();
+		String parameter = tester.getRequest()
+			.getPostParameters()
+			.getParameterValue(formComponent.getInputName())
+			.toString();
 		return parameter != null && parameter.trim().length() > 0;
 	}
 
@@ -807,8 +841,9 @@ public class FormTester
 	 */
 	private void setFormComponentValue(FormComponent<?> formComponent, String value)
 	{
-		tester.getRequest().getPostParameters().setParameterValue(formComponent.getInputName(),
-			value);
+		tester.getRequest()
+			.getPostParameters()
+			.setParameterValue(formComponent.getInputName(), value);
 	}
 
 	/**

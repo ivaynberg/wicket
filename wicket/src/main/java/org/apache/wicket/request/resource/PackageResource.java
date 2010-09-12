@@ -16,25 +16,29 @@
  */
 package org.apache.wicket.request.resource;
 
+import java.io.IOException;
 import java.util.Locale;
 
-import javax.servlet.http.HttpServletResponse;
-
 import org.apache.wicket.Application;
+import org.apache.wicket.ThreadContext;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.markup.html.IPackageResourceGuard;
-import org.apache.wicket.request.cycle.RequestCycle;
-import org.apache.wicket.request.handler.AbortRequestHandler;
 import org.apache.wicket.request.http.WebResponse;
-import org.apache.wicket.request.http.handler.ErrorCodeResponseHandler;
+import org.apache.wicket.util.io.IOUtils;
 import org.apache.wicket.util.lang.Packages;
 import org.apache.wicket.util.lang.WicketObjects;
 import org.apache.wicket.util.resource.IResourceStream;
+import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
+import org.apache.wicket.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PackageResource implements IResource
+public class PackageResource extends AbstractResource
 {
+	private static final Logger log = LoggerFactory.getLogger(PackageResource.class);
+
+	private static final long serialVersionUID = 1L;
+
 	/**
 	 * Exception thrown when the creation of a package resource is not allowed.
 	 */
@@ -44,8 +48,8 @@ public class PackageResource implements IResource
 
 		/**
 		 * Construct.
-		 * 
-		 * @param message
+		 *
+		 * @param message error message
 		 */
 		public PackageResourceBlockedException(String message)
 		{
@@ -53,43 +57,49 @@ public class PackageResource implements IResource
 		}
 	}
 
-	private static final long serialVersionUID = 1L;
-
-	/** The path to the resource */
+	/**
+	 * The path to the resource
+	 */
 	private final String absolutePath;
 
-	/** The resource's locale */
+	/**
+	 * The resource's locale
+	 */
 	private final Locale locale;
 
-	/** The path this resource was created with. */
+	/**
+	 * The path this resource was created with.
+	 */
 	private final String path;
 
-	/** The scoping class, used for class loading and to determine the package. */
+	/**
+	 * The scoping class, used for class loading and to determine the package.
+	 */
 	private final String scopeName;
 
-	/** The resource's style */
+	/**
+	 * The resource's style
+	 */
 	private final String style;
 
-	/** The component's variation (of the style) */
+	/**
+	 * The component's variation (of the style)
+	 */
 	private final String variation;
+
 
 	/**
 	 * Hidden constructor.
-	 * 
-	 * @param scope
-	 *            This argument will be used to get the class loader for loading the package
-	 *            resource, and to determine what package it is in
-	 * @param name
-	 *            The relative path to the resource
-	 * @param locale
-	 *            The locale of the resource
-	 * @param style
-	 *            The style of the resource
-	 * @param variation
-	 *            The component's variation (of the style)
+	 *
+	 * @param scope     This argument will be used to get the class loader for loading the package
+	 *                  resource, and to determine what package it is in
+	 * @param name      The relative path to the resource
+	 * @param locale    The locale of the resource
+	 * @param style     The style of the resource
+	 * @param variation The component's variation (of the style)
 	 */
 	protected PackageResource(final Class<?> scope, final String name, final Locale locale,
-		final String style, final String variation)
+	                          final String style, final String variation)
 	{
 		// Convert resource path to absolute path relative to base package
 		absolutePath = Packages.absolutePath(scope, name);
@@ -97,8 +107,8 @@ public class PackageResource implements IResource
 		if (!accept(scope, name))
 		{
 			throw new PackageResourceBlockedException(
-				"Access denied to (static) package resource " + absolutePath +
-					". See IPackageResourceGuard");
+					"Access denied to (static) package resource " + absolutePath +
+							". See IPackageResourceGuard");
 		}
 
 		// TODO NG: Check path for ../
@@ -112,7 +122,7 @@ public class PackageResource implements IResource
 
 	/**
 	 * Gets the scoping class, used for class loading and to determine the package.
-	 * 
+	 *
 	 * @return the scoping class
 	 */
 	public final Class<?> getScope()
@@ -122,7 +132,7 @@ public class PackageResource implements IResource
 
 	/**
 	 * Gets the style.
-	 * 
+	 *
 	 * @return the style
 	 */
 	public final String getStyle()
@@ -130,70 +140,150 @@ public class PackageResource implements IResource
 		return style;
 	}
 
-
-	public void respond(Attributes attributes)
+	/**
+	 * creates a new resource response based on the request attributes
+	 *
+	 * @param attributes current request attributes from client
+	 * @return resource response for answering request
+	 */
+	@Override
+	protected ResourceResponse newResourceResponse(Attributes attributes)
 	{
-		// Locate resource
-		IResourceStream resourceStream = Application.get()
-			.getResourceSettings()
-			.getResourceStreamLocator()
-			.locate(getScope(), absolutePath, style, variation, locale, null);
+		final ResourceResponse resourceResponse = new ResourceResponse();
 
-		if (resourceStream == null)
+		if (resourceResponse.dataNeedsToBeWritten(attributes))
 		{
-			String msg = "Unable to find package resource [path = " + absolutePath + ", style = " +
-				style + ", variation = " + variation + ", locale = " + locale + "]";
-			log.warn(msg);
+			// get resource stream
+			final IResourceStream resourceStream = getResourceStream();
 
-			if (RequestCycle.get().getResponse() instanceof WebResponse)
+			// bail out if resource stream could not be found
+			if (resourceStream == null)
+				return sendResourceError(resourceResponse, 404, "Unable to find resource");
+
+			// set Content-Type (may be null)
+			resourceResponse.setContentType(resourceStream.getContentType());
+
+			// add Last-Modified header (to support HEAD requests and If-Modified-Since)
+			final Time lastModified = resourceStream.lastModifiedTime();
+
+			if(lastModified != null)
+				resourceResponse.setLastModified(lastModified.toDate());
+
+			try
 			{
-				RequestCycle.get().replaceAllRequestHandlers(
-					new ErrorCodeResponseHandler(HttpServletResponse.SC_NOT_FOUND, msg));
+				// read resource data
+				final byte[] bytes;
+
+				try
+				{
+					bytes = IOUtils.toByteArray(resourceStream.getInputStream());
+				}
+				finally
+				{
+					resourceStream.close();
+				}
+
+				// send Content-Length header
+				resourceResponse.setContentLength(bytes.length);
+
+				// send response body with resource data
+				resourceResponse.setWriteCallback(new WriteCallback()
+				{
+					@Override
+					public void writeData(Attributes attributes)
+					{
+						attributes.getResponse().write(bytes);
+					}
+				});
 			}
-			else
+			catch (IOException e)
 			{
-				RequestCycle.get().replaceAllRequestHandlers(new AbortRequestHandler());
+				log.debug(e.getMessage(), e);
+				return sendResourceError(resourceResponse, 500, "Unable to read resource stream");
 			}
-			return;
+			catch (ResourceStreamNotFoundException e)
+			{
+				log.debug(e.getMessage(), e);
+				return sendResourceError(resourceResponse, 500, "Unable to open resource stream");
+			}
 		}
 
-		new ResourceStreamResource(resourceStream).respond(attributes);
+		// if timestamps are enabled on resource we can maximize caching with no pain
+		if(Application.get().getResourceSettings().getUseTimestampOnResources())
+		{
+			resourceResponse.setCacheDurationToMaximum();
+			resourceResponse.setCacheScope(WebResponse.CacheScope.PUBLIC);
+		}
+
+		return resourceResponse;
 	}
 
+	/**
+	 * send resource specific error message and write log entry
+	 *
+	 * @param resourceResponse resource response
+	 * @param errorCode error code (=http status)
+	 * @param errorMessage error message (=http error message)
+	 * @return resource response for method chaining
+	 */
+	private ResourceResponse sendResourceError(ResourceResponse resourceResponse, int errorCode, String errorMessage)
+	{
+		String msg = String.format("resource [path = %s, style = %s, variation = %s, locale = %s]: %s (status=%d)",
+		                           absolutePath, style, variation, locale, errorMessage, errorCode);
+
+		log.warn(msg);
+
+		resourceResponse.setError(errorCode, errorMessage);
+		return resourceResponse;
+	}
+
+	/**
+	 * locate resource stream for current resource
+	 *
+	 * @return resource stream or <code>null</code> if not found
+	 */
+	private IResourceStream getResourceStream()
+	{
+		// Locate resource
+		return ThreadContext.getApplication()
+				.getResourceSettings()
+				.getResourceStreamLocator()
+				.locate(getScope(), absolutePath, style, variation, locale, null);
+	}
+
+	/**
+	 * @param scope resource scope
+	 * @param path  resource path
+	 * @return <code>true<code> if resource access is granted
+	 */
 	private boolean accept(Class<?> scope, String path)
 	{
-		IPackageResourceGuard guard = Application.get()
-			.getResourceSettings()
-			.getPackageResourceGuard();
+		IPackageResourceGuard guard = ThreadContext.getApplication()
+				.getResourceSettings()
+				.getPackageResourceGuard();
 
 		return guard.accept(scope, path);
 	}
 
-	private static final Logger log = LoggerFactory.getLogger(PackageResource.class);
-
 	/**
 	 * Gets whether a resource for a given set of criteria exists.
-	 * 
-	 * @param scope
-	 *            This argument will be used to get the class loader for loading the package
-	 *            resource, and to determine what package it is in. Typically this is the class in
-	 *            which you call this method
-	 * @param path
-	 *            The path to the resource
-	 * @param locale
-	 *            The locale of the resource
-	 * @param style
-	 *            The style of the resource (see {@link org.apache.wicket.Session})
-	 * @param variation
-	 *            The component's variation (of the style)
+	 *
+	 * @param scope     This argument will be used to get the class loader for loading the package
+	 *                  resource, and to determine what package it is in. Typically this is the class in
+	 *                  which you call this method
+	 * @param path      The path to the resource
+	 * @param locale    The locale of the resource
+	 * @param style     The style of the resource (see {@link org.apache.wicket.Session})
+	 * @param variation The component's variation (of the style)
 	 * @return true if a resource could be loaded, false otherwise
 	 */
 	public static boolean exists(final Class<?> scope, final String path, final Locale locale,
-		final String style, final String variation)
+	                             final String style, final String variation)
 	{
 		String absolutePath = Packages.absolutePath(scope, path);
-		return Application.get().getResourceSettings().getResourceStreamLocator().locate(scope,
-			absolutePath, style, variation, locale, null) != null;
+		return ThreadContext.getApplication()
+				.getResourceSettings()
+				.getResourceStreamLocator()
+				.locate(scope, absolutePath, style, variation, locale, null) != null;
 	}
-
 }

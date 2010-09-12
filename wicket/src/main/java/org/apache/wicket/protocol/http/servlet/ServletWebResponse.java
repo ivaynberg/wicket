@@ -27,7 +27,7 @@ import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.protocol.http.RequestUtils;
 import org.apache.wicket.request.Url;
 import org.apache.wicket.request.http.WebResponse;
-import org.apache.wicket.util.lang.Checks;
+import org.apache.wicket.util.lang.Args;
 
 /**
  * WebResponse that wraps a {@link ServletWebResponse}.
@@ -48,8 +48,8 @@ public class ServletWebResponse extends WebResponse
 	public ServletWebResponse(HttpServletRequest httpServletRequest,
 		HttpServletResponse httpServletResponse)
 	{
-		Checks.argumentNotNull(httpServletRequest, "httpServletRequest");
-		Checks.argumentNotNull(httpServletResponse, "httpServletResponse");
+		Args.notNull(httpServletRequest, "httpServletRequest");
+		Args.notNull(httpServletResponse, "httpServletResponse");
 
 		this.httpServletResponse = httpServletResponse;
 		this.httpServletRequest = httpServletRequest;
@@ -223,12 +223,24 @@ public class ServletWebResponse extends WebResponse
 	@Override
 	public void sendRedirect(String url)
 	{
+		sendRedirect(url, false);
+	}
+
+	private void sendRedirect(String url, boolean cacheable)
+	{
 		redirect = true;
 		url = getAbsoluteURL(url);
 		url = httpServletResponse.encodeRedirectURL(url);
 
 		try
 		{
+			// proxies eventually cache '302 temporary redirect' responses:
+			// for most wicket use cases this is fatal since redirects are
+			// usually highly dynamic and can not be statically mapped
+			// to a request url in general
+			if (cacheable == false)
+				this.disableCaching();
+
 			httpServletResponse.sendRedirect(url);
 		}
 		catch (IOException e)
