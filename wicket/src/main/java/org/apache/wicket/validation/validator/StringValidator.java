@@ -20,8 +20,11 @@ import java.util.Map;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.markup.ComponentTag;
+import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.util.lang.Objects;
 import org.apache.wicket.validation.IValidatable;
+import org.apache.wicket.validation.clientside.ClientSideRule;
+import org.apache.wicket.validation.clientside.ClientSideValidator;
 
 
 /**
@@ -289,6 +292,8 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 * requirement.
 	 */
 	public static class MinimumLengthValidator extends StringValidator
+		implements
+			ClientSideValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int minimum;
@@ -351,6 +356,35 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 		protected int getMaximum()
 		{
 			return -1;
+		}
+
+		public ClientSideRule getClientSideRule()
+		{
+			return new ClientSideRule<String>()
+			{
+
+				public boolean supports(FormComponent<String> fc, ComponentTag tag)
+				{
+					return true;
+				}
+
+				public CharSequence getRuleName()
+				{
+					return MinimumLengthValidator.class.getName();
+				}
+
+				public CharSequence getRuleDefinition()
+				{
+					return "{ validate: function(element, args) { return element.value!=null&&element.value.length>=args.min; },"
+						+ "message:function(element, args) { return 'must be longer than '+args.min+' characters' } }";
+				}
+
+				public CharSequence getRuleParameters(FormComponent<String> fc)
+				{
+					return "{min: " + getMaximum() + "}";
+				}
+
+			};
 		}
 
 	}
