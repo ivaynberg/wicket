@@ -16,10 +16,18 @@
  */
 package org.apache.wicket.validation.clientside;
 
-import org.apache.wicket.markup.html.IHeaderResponse;
-import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.IClusterable;
+import org.apache.wicket.markup.ComponentTag;
+import org.apache.wicket.markup.html.form.FormComponent;
 
-public interface IClientSideValidation
+public interface IClientSideRule<T> extends IClusterable
 {
-	void renderHead(Form<?> form, final IHeaderResponse response);
+	boolean supports(FormComponent<T> fc, ComponentTag tag);
+
+	CharSequence getRuleName();
+
+	CharSequence getRuleDefinition();
+
+	CharSequence getRuleParameters(FormComponent<T> fc);
+
 }

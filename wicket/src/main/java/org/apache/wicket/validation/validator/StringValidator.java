@@ -23,8 +23,8 @@ import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.util.lang.Objects;
 import org.apache.wicket.validation.IValidatable;
-import org.apache.wicket.validation.clientside.ClientSideRule;
-import org.apache.wicket.validation.clientside.ClientSideValidator;
+import org.apache.wicket.validation.clientside.IClientSideRule;
+import org.apache.wicket.validation.clientside.IClientSideValidator;
 
 
 /**
@@ -293,7 +293,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 */
 	public static class MinimumLengthValidator extends StringValidator
 		implements
-			ClientSideValidator<String>
+			IClientSideValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int minimum;
@@ -358,9 +358,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return -1;
 		}
 
-		public ClientSideRule getClientSideRule()
+		public IClientSideRule getClientSideRule()
 		{
-			return new ClientSideRule<String>()
+			return new IClientSideRule<String>()
 			{
 
 				public boolean supports(FormComponent<String> fc, ComponentTag tag)

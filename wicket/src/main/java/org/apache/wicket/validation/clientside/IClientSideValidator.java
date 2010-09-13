@@ -16,10 +16,9 @@
  */
 package org.apache.wicket.validation.clientside;
 
-import org.apache.wicket.markup.html.IHeaderResponse;
-import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.validation.IValidator;
 
-public interface IClientSideValidation
+public interface IClientSideValidator<T> extends IValidator<T>
 {
-	void renderHead(Form<?> form, final IHeaderResponse response);
+	IClientSideRule<T> getClientSideRule();
 }

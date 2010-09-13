@@ -16,7 +16,49 @@
  */
 package org.apache.wicket.validation.clientside;
 
+import org.apache.wicket.markup.html.IHeaderResponse;
+import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.form.FormComponent;
+import org.apache.wicket.util.visit.IVisit;
+import org.apache.wicket.util.visit.IVisitor;
+import org.apache.wicket.validation.IValidator;
+
 public class ClientSideValidation implements IClientSideValidation
 {
+
+	public void renderHead(Form<?> form, IHeaderResponse response)
+	{
+		form.visitFormComponents(new IVisitor<FormComponent<?>, Void>()
+		{
+			public void component(FormComponent<?> object, IVisit<Void> visit)
+			{
+				for (IValidator<?> validator : object.getValidators())
+				{
+					if (validator instanceof IClientSideValidator)
+					{
+						process(object, (IClientSideValidator<?>)validator, response);
+					}
+				}
+			}
+
+			private <T> void process(FormComponent<?> object, IClientSideValidator<?> validator,
+				IHeaderResponse response)
+			{
+				FormComponent<T> component = (FormComponent<T>)object;
+				IClientSideRule<T> rule = (IClientSideRule<T>)validator.getClientSideRule();
+				if (rule.supports(component, null))// TODO CLIENTSIDE component tag is null
+				{
+					process(component, rule, response);
+				}
+			}
+
+			private <T> void process(FormComponent<T> component, IClientSideRule<T> rule,
+				IHeaderResponse response)
+			{
+
+			}
+
+		});
+	}
 
 }
