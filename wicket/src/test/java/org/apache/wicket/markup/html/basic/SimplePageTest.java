@@ -22,7 +22,7 @@ import org.apache.wicket.markup.MarkupNotFoundException;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.border.Border;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.util.value.ValueMap;
+import org.apache.wicket.util.value.IValueMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -157,7 +157,7 @@ public class SimplePageTest extends WicketTestCase
 
 		Label label = (Label)page.get("myLabel");
 		assertNotNull(label);
-		ValueMap attr = label.getMarkupAttributes();
+		IValueMap attr = label.getMarkupAttributes();
 		assertNotNull(attr);
 		assertEquals("myLabel", attr.getString("wicket:id"));
 

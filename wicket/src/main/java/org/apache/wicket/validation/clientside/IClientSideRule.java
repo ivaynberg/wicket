@@ -24,10 +24,10 @@ public interface IClientSideRule<T> extends IClusterable
 {
 	boolean supports(FormComponent<T> fc, ComponentTag tag);
 
-	CharSequence getRuleName();
+	CharSequence getName();
 
-	CharSequence getRuleDefinition();
+	CharSequence getDefinition();
 
-	CharSequence getRuleParameters(FormComponent<T> fc);
+	CharSequence getParameters(FormComponent<T> fc);
 
 }

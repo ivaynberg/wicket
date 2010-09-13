@@ -19,6 +19,7 @@ package org.apache.wicket.validation.clientside;
 import org.apache.wicket.markup.html.IHeaderResponse;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.FormComponent;
+import org.apache.wicket.request.resource.PackageResourceReference;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
 import org.apache.wicket.validation.IValidator;
@@ -26,39 +27,57 @@ import org.apache.wicket.validation.IValidator;
 public class ClientSideValidation implements IClientSideValidation
 {
 
-	public void renderHead(Form<?> form, IHeaderResponse response)
+	public void renderHead(Form<?> form, final IHeaderResponse response)
 	{
 		form.visitFormComponents(new IVisitor<FormComponent<?>, Void>()
 		{
 			public void component(FormComponent<?> object, IVisit<Void> visit)
 			{
-				for (IValidator<?> validator : object.getValidators())
+				if (object.isVisibleInHierarchy() && object.isEnabledInHierarchy())
 				{
-					if (validator instanceof IClientSideValidator)
+					for (IValidator<?> validator : object.getValidators())
 					{
-						process(object, (IClientSideValidator<?>)validator, response);
+						if (validator instanceof IClientSideValidator)
+						{
+							process(object, (IClientSideValidator<?>)validator, response);
+						}
 					}
 				}
 			}
-
-			private <T> void process(FormComponent<?> object, IClientSideValidator<?> validator,
-				IHeaderResponse response)
-			{
-				FormComponent<T> component = (FormComponent<T>)object;
-				IClientSideRule<T> rule = (IClientSideRule<T>)validator.getClientSideRule();
-				if (rule.supports(component, null))// TODO CLIENTSIDE component tag is null
-				{
-					process(component, rule, response);
-				}
-			}
-
-			private <T> void process(FormComponent<T> component, IClientSideRule<T> rule,
-				IHeaderResponse response)
-			{
-
-			}
-
 		});
 	}
 
+	private <T> void process(FormComponent<?> object, IClientSideValidator<?> validator,
+		IHeaderResponse response)
+	{
+		FormComponent<T> component = (FormComponent<T>)object;
+		IClientSideRule<T> rule = (IClientSideRule<T>)validator.getClientSideRule();
+		Object tag = component.getMarkup().find(component.getId());
+		if (rule.supports(component, component.getMarkupTag()))
+		{
+			process(component, rule, response);
+		}
+	}
+
+	private <T> void process(FormComponent<T> component, IClientSideRule<T> rule,
+		IHeaderResponse response)
+	{
+		component.setOutputMarkupId(true);
+
+		response.renderJavascriptReference(new PackageResourceReference(ClientSideValidation.class,
+			"validation.js"));
+
+		// define the rule
+		CharSequence def = rule.getDefinition();
+		CharSequence name = rule.getName();
+		response.renderJavascript(String.format("Wicket.Validation.define('%s',%s);", name, def),
+			rule.getClass().getName() + ".def");
+
+		// attach the rule
+		response.renderOnDomReadyJavascript(String.format(
+			"Wicket.Event.add(Wicket.$('%s'), 'blur',function() { Wicket.Validation.validate(this, '%s', %s); });",
+			component.getMarkupId(), name, rule.getParameters(component)));
+
+
+	}
 }

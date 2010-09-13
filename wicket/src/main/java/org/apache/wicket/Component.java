@@ -70,6 +70,7 @@ import org.apache.wicket.util.lang.WicketObjects;
 import org.apache.wicket.util.string.ComponentStrings;
 import org.apache.wicket.util.string.PrependingStringBuffer;
 import org.apache.wicket.util.string.Strings;
+import org.apache.wicket.util.value.IValueMap;
 import org.apache.wicket.util.value.ValueMap;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
@@ -1541,11 +1542,11 @@ public abstract class Component
 	}
 
 	/**
-	 * Get the first component tag in the associated markup
+	 * Get an immutable version of this component's {@link ComponentTag}.
 	 * 
 	 * @return first component tag
 	 */
-	private final ComponentTag getMarkupTag()
+	public final ComponentTag getMarkupTag()
 	{
 		IMarkupFragment markup = getMarkup();
 		if (markup != null)
@@ -1555,7 +1556,9 @@ public abstract class Component
 				MarkupElement elem = markup.get(i);
 				if (elem instanceof ComponentTag)
 				{
-					return (ComponentTag)elem;
+					ComponentTag copy = new ComponentTag((ComponentTag)elem);
+					copy.makeImmutable();
+					return copy;
 				}
 			}
 		}
@@ -1574,14 +1577,12 @@ public abstract class Component
 	 * 
 	 * @return markup attributes
 	 */
-	public final ValueMap getMarkupAttributes()
+	public final IValueMap getMarkupAttributes()
 	{
 		ComponentTag tag = getMarkupTag();
 		if (tag != null)
 		{
-			ValueMap attrs = new ValueMap(tag.getAttributes());
-			attrs.makeImmutable();
-			return attrs;
+			return tag.getAttributes();
 		}
 		return ValueMap.EMPTY_MAP;
 	}

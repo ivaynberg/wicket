@@ -69,11 +69,19 @@ Wicket.Validation = {
 		Wicket.Validation.definitions[name]=rule;
 	},
 	
-	validate: function(element, rule, args) {
-		element=Wicket.$(element);
+	validate: function(element, ruleName, args) {
+		var element=Wicket.$(element);
+
+		var rule=Wicket.Validation.definitions[ruleName];
 		
-		if (!rule.validate(element, args) {
-			Wicket.Validation.error(element, rule.message(element, args));
+		var errors=rule.validate(element, args);
+		
+		if (errors!=null&&errors.length>0) {
+			for (var i in errors) {
+				Wicket.Validation.error(element, errors[i]);
+			}
 		}
-	}
+	},
+	
+	error:function (element, message) { alert(message); }
 }

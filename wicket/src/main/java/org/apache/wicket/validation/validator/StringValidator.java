@@ -37,6 +37,7 @@ import org.apache.wicket.validation.clientside.IClientSideValidator;
  * @since 1.2.6
  */
 public abstract class StringValidator extends AbstractBaseComponentValidator<String>
+
 {
 	private static final long serialVersionUID = 1L;
 
@@ -71,6 +72,8 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 * length.
 	 */
 	public static class ExactLengthValidator extends StringValidator
+		implements
+			IClientSideValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int length;
@@ -137,12 +140,35 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return length;
 		}
 
+		public IClientSideRule<String> getClientSideRule()
+		{
+			return new AbstractClientSideRule()
+			{
+				private static final long serialVersionUID = 1L;
+
+				public CharSequence getDefinition()
+				{
+					return "{"
+						+ "validate: function(element, args) {"
+						+ "	if (element.value==null) return null;"
+						+ "	if (element.value.length!args.length) { return ['must be at exactly '+args.length+' characters']; }"
+						+ " return null;}}";
+				}
+
+				public CharSequence getParameters(FormComponent<String> fc)
+				{
+					return "{length: " + getLength() + "}";
+				}
+			};
+		}
 	}
 
 	/**
 	 * Validator for checking if the length of a <code>String</code> is within the specified range.
 	 */
 	public static class LengthBetweenValidator extends StringValidator
+		implements
+			IClientSideValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int maximum;
@@ -220,6 +246,28 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return map;
 		}
 
+		public IClientSideRule<String> getClientSideRule()
+		{
+			return new AbstractClientSideRule()
+			{
+				private static final long serialVersionUID = 1L;
+
+				public CharSequence getDefinition()
+				{
+					return "{"
+						+ "validate: function(element, args) {"
+						+ "	if (element.value==null) return null;"
+						+ "	if (element.value.length<args.min) { return ['must be at least '+args.min+' characters']; }"
+						+ "	if (element.value.length>args.max) { return ['must be at most '+args.max+' characters']; }"
+						+ " return null;}}";
+				}
+
+				public CharSequence getParameters(FormComponent<String> fc)
+				{
+					return "{max: " + getMaximum() + ",min:" + getMinimum() + "}";
+				}
+			};
+		}
 	}
 
 	/**
@@ -227,6 +275,8 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 * requirement.
 	 */
 	public static class MaximumLengthValidator extends StringValidator
+		implements
+			IClientSideValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int maximum;
@@ -285,6 +335,29 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			map.put("length", new Integer((validatable.getValue()).length()));
 			return map;
 		}
+
+		public IClientSideRule<String> getClientSideRule()
+		{
+			return new AbstractClientSideRule()
+			{
+				private static final long serialVersionUID = 1L;
+
+				public CharSequence getDefinition()
+				{
+					return "{"
+						+ "validate: function(element, args) {"
+						+ "	if (element.value==null) return null;"
+						+ "	if (element.value.length>args.max) { return ['must be at most '+args.max+' characters']; }"
+						+ "}}";
+				}
+
+				public CharSequence getParameters(FormComponent<String> fc)
+				{
+					return "{max: " + getMaximum() + "}";
+				}
+			};
+		}
+
 	}
 
 	/**
@@ -358,35 +431,27 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return -1;
 		}
 
-		public IClientSideRule getClientSideRule()
+		public IClientSideRule<String> getClientSideRule()
 		{
-			return new IClientSideRule<String>()
+			return new AbstractClientSideRule()
 			{
+				private static final long serialVersionUID = 1L;
 
-				public boolean supports(FormComponent<String> fc, ComponentTag tag)
+				public CharSequence getDefinition()
 				{
-					return true;
+					return "{"
+						+ "validate: function(element, args) {"
+						+ "	if (element.value==null) return null;"
+						+ "	if (element.value.length<args.min) { return ['must be at least '+args.min+' characters']; }"
+						+ " return null;}}";
 				}
 
-				public CharSequence getRuleName()
+				public CharSequence getParameters(FormComponent<String> fc)
 				{
-					return MinimumLengthValidator.class.getName();
+					return "{min: " + getMinimum() + "}";
 				}
-
-				public CharSequence getRuleDefinition()
-				{
-					return "{ validate: function(element, args) { return element.value!=null&&element.value.length>=args.min; },"
-						+ "message:function(element, args) { return 'must be longer than '+args.min+' characters' } }";
-				}
-
-				public CharSequence getRuleParameters(FormComponent<String> fc)
-				{
-					return "{min: " + getMaximum() + "}";
-				}
-
 			};
 		}
-
 	}
 
 	/**
@@ -490,5 +555,20 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	public static StringValidator minimumLength(int minimum)
 	{
 		return new MinimumLengthValidator(minimum);
+	}
+
+	private abstract static class AbstractClientSideRule implements IClientSideRule<String>
+	{
+		public boolean supports(FormComponent<String> fc, ComponentTag tag)
+		{
+			return "input".equalsIgnoreCase(tag.getName()) ||
+				"password".equalsIgnoreCase(tag.getName());
+		}
+
+		public CharSequence getName()
+		{
+			return getClass().getName();
+		}
+
 	}
 }
