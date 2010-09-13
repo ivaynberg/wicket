@@ -54,7 +54,7 @@ import org.apache.wicket.util.visit.ClassVisitFilter;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
 import org.apache.wicket.util.visit.Visits;
-import org.apache.wicket.validation.clientside.ClientSideValidation;
+import org.apache.wicket.validation.clientside.JavaScriptValidation;
 import org.apache.wicket.validation.clientside.IClientSideValidation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1983,7 +1983,7 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 		IClientSideValidation csv = getClientSideValidation();
 		if (csv != null)
 		{
-			csv.renderHead(this, response);
+			csv.configure(this, response);
 		}
 	}
 
@@ -2002,7 +2002,7 @@ public class Form<T> extends WebMarkupContainer implements IFormSubmitListener, 
 	// TODO CLIENTSIDE
 	public IClientSideValidation getClientSideValidation()
 	{
-		return new ClientSideValidation();
+		return new JavaScriptValidation();
 	}
 
 }

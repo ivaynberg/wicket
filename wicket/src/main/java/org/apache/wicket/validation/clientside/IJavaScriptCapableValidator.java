@@ -18,7 +18,7 @@ package org.apache.wicket.validation.clientside;
 
 import org.apache.wicket.validation.IValidator;
 
-public interface ClientSideValidator<T> extends IValidator<T>
+public interface IJavaScriptCapableValidator<T> extends IValidator<T>
 {
-	ClientSideRule getClientSideRule();
+	IJavaScriptRule<T> getClientSideRule();
 }

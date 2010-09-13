@@ -21,5 +21,5 @@ import org.apache.wicket.markup.html.form.Form;
 
 public interface IClientSideValidation
 {
-	void renderHead(Form<?> form, final IHeaderResponse response);
+	<T> void configure(Form<?> form, final IHeaderResponse response);
 }

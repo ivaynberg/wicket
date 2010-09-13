@@ -16,9 +16,18 @@
  */
 package org.apache.wicket.validation.clientside;
 
-import org.apache.wicket.validation.IValidator;
+import org.apache.wicket.IClusterable;
+import org.apache.wicket.markup.ComponentTag;
+import org.apache.wicket.markup.html.form.FormComponent;
 
-public interface IClientSideValidator<T> extends IValidator<T>
+public interface IJavaScriptRule<T> extends IClusterable
 {
-	IClientSideRule<T> getClientSideRule();
+	boolean supports(FormComponent<? extends T> fc, ComponentTag tag);
+
+	CharSequence getName();
+
+	CharSequence getDefinition();
+
+	CharSequence getParameters(FormComponent<? extends T> fc);
+
 }

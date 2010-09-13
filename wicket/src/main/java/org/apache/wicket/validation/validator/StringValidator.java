@@ -23,8 +23,8 @@ import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.util.lang.Objects;
 import org.apache.wicket.validation.IValidatable;
-import org.apache.wicket.validation.clientside.IClientSideRule;
-import org.apache.wicket.validation.clientside.IClientSideValidator;
+import org.apache.wicket.validation.clientside.IJavaScriptCapableValidator;
+import org.apache.wicket.validation.clientside.IJavaScriptRule;
 
 
 /**
@@ -73,7 +73,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 */
 	public static class ExactLengthValidator extends StringValidator
 		implements
-			IClientSideValidator<String>
+			IJavaScriptCapableValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int length;
@@ -140,9 +140,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return length;
 		}
 
-		public IClientSideRule<String> getClientSideRule()
+		public IJavaScriptRule<String> getClientSideRule()
 		{
-			return new AbstractClientSideRule()
+			return new AbstractJavaScriptRule()
 			{
 				private static final long serialVersionUID = 1L;
 
@@ -155,7 +155,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 						+ " return null;}}";
 				}
 
-				public CharSequence getParameters(FormComponent<String> fc)
+				public CharSequence getParameters(FormComponent<? extends String> fc)
 				{
 					return "{length: " + getLength() + "}";
 				}
@@ -168,7 +168,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 */
 	public static class LengthBetweenValidator extends StringValidator
 		implements
-			IClientSideValidator<String>
+			IJavaScriptCapableValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int maximum;
@@ -246,9 +246,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return map;
 		}
 
-		public IClientSideRule<String> getClientSideRule()
+		public IJavaScriptRule<String> getClientSideRule()
 		{
-			return new AbstractClientSideRule()
+			return new AbstractJavaScriptRule()
 			{
 				private static final long serialVersionUID = 1L;
 
@@ -262,7 +262,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 						+ " return null;}}";
 				}
 
-				public CharSequence getParameters(FormComponent<String> fc)
+				public CharSequence getParameters(FormComponent<? extends String> fc)
 				{
 					return "{max: " + getMaximum() + ",min:" + getMinimum() + "}";
 				}
@@ -276,7 +276,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 */
 	public static class MaximumLengthValidator extends StringValidator
 		implements
-			IClientSideValidator<String>
+			IJavaScriptCapableValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int maximum;
@@ -336,9 +336,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return map;
 		}
 
-		public IClientSideRule<String> getClientSideRule()
+		public IJavaScriptRule<String> getClientSideRule()
 		{
-			return new AbstractClientSideRule()
+			return new AbstractJavaScriptRule()
 			{
 				private static final long serialVersionUID = 1L;
 
@@ -351,7 +351,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 						+ "}}";
 				}
 
-				public CharSequence getParameters(FormComponent<String> fc)
+				public CharSequence getParameters(FormComponent<? extends String> fc)
 				{
 					return "{max: " + getMaximum() + "}";
 				}
@@ -366,7 +366,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 	 */
 	public static class MinimumLengthValidator extends StringValidator
 		implements
-			IClientSideValidator<String>
+			IJavaScriptCapableValidator<String>
 	{
 		private static final long serialVersionUID = 1L;
 		private final int minimum;
@@ -431,9 +431,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 			return -1;
 		}
 
-		public IClientSideRule<String> getClientSideRule()
+		public IJavaScriptRule<String> getClientSideRule()
 		{
-			return new AbstractClientSideRule()
+			return new AbstractJavaScriptRule()
 			{
 				private static final long serialVersionUID = 1L;
 
@@ -446,7 +446,7 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 						+ " return null;}}";
 				}
 
-				public CharSequence getParameters(FormComponent<String> fc)
+				public CharSequence getParameters(FormComponent<? extends String> fc)
 				{
 					return "{min: " + getMinimum() + "}";
 				}
@@ -557,9 +557,9 @@ public abstract class StringValidator extends AbstractBaseComponentValidator<Str
 		return new MinimumLengthValidator(minimum);
 	}
 
-	private abstract static class AbstractClientSideRule implements IClientSideRule<String>
+	private abstract static class AbstractJavaScriptRule implements IJavaScriptRule<String>
 	{
-		public boolean supports(FormComponent<String> fc, ComponentTag tag)
+		public boolean supports(FormComponent<? extends String> fc, ComponentTag tag)
 		{
 			return "input".equalsIgnoreCase(tag.getName()) ||
 				"password".equalsIgnoreCase(tag.getName());
