@@ -90,33 +90,33 @@ public class JavaScriptValidation implements IClientSideValidation
 	protected <T> void attachRules(FormComponent<T> component,
 		Collection<IJavaScriptRule<? super T>> rules, IHeaderResponse response)
 	{
-		StringBuilder validator = new StringBuilder();
-		validator.append("Wicket.Event.add(Wicket.$('")
-			.append(component.getMarkupId())
-			.append("'), 'blur', ");
-		appendRulesInvocationFunction(component, rules, validator);
-		validator.append(");");
-		response.renderOnDomReadyJavascript(validator.toString());
+		String invocation = String.format(
+			"Wicket.Event.add(Wicket.$('%s'), 'blur', function (event) { var validator=%s; return validator(); });",
+			component.getMarkupId(), getValidationFunction(component, rules),
+			component.getMarkupId());
+		response.renderOnDomReadyJavascript(invocation);
 	}
 
-	protected <T> void appendRulesInvocationFunction(FormComponent<T> component,
-		Collection<IJavaScriptRule<? super T>> rules, StringBuilder buffer)
+	protected <T> CharSequence getValidationFunction(FormComponent<T> component,
+		Collection<IJavaScriptRule<? super T>> rules)
 	{
-		buffer.append("function() { ");
+		StringBuilder function = new StringBuilder();
+		function.append("function(element) { ");
 		for (IJavaScriptRule<? super T> rule : rules)
 		{
-			appendRuleInvocation(rule, component, buffer);
+			function.append(getValidationScript(component, rule));
 		}
-		buffer.append("}");
+		function.append("}");
+		return function;
 
 	}
 
 
-	protected <T> void appendRuleInvocation(IJavaScriptRule<? super T> rule, FormComponent<T> fc,
-		StringBuilder buffer)
+	protected <T> CharSequence getValidationScript(FormComponent<T> component,
+		IJavaScriptRule<? super T> rule)
 	{
-		buffer.append(String.format("Wicket.Validation.validate(this, '%s', %s);", rule.getName(),
-			rule.getParameters(fc)));
+		return String.format("Wicket.Validation.validate(element, '%s', %s);", rule.getName(),
+			rule.getParameters(component));
 	}
 
 	protected <T> List<IJavaScriptRule<? super T>> getRules(FormComponent<T> component)
