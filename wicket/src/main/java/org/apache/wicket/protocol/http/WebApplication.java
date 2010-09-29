@@ -29,7 +29,6 @@ import org.apache.wicket.Application;
 import org.apache.wicket.IPageRendererProvider;
 import org.apache.wicket.Page;
 import org.apache.wicket.Session;
-import org.apache.wicket.ThreadContext;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.markup.html.pages.AccessDeniedPage;
@@ -49,6 +48,7 @@ import org.apache.wicket.request.handler.render.WebPageRenderer;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.MountedMapper;
+import org.apache.wicket.request.mapper.ResourceMapper;
 import org.apache.wicket.request.resource.ResourceReference;
 import org.apache.wicket.session.HttpSessionStore;
 import org.apache.wicket.session.ISessionStore;
@@ -296,45 +296,33 @@ public abstract class WebApplication extends Application
 	}
 
 	/**
-	 * Mounts a bookmarkable page class to the given path.
+	 * Mounts a page class to the given path.
 	 * 
 	 * @param <T>
 	 *            type of page
 	 * 
 	 * @param path
-	 *            the path to mount the bookmarkable page class on
-	 * @param bookmarkablePageClass
-	 *            the bookmarkable page class to mount
-	 * 
-	 * @deprecated use mounted mapper instead, this method can be represented as
-	 *             {@code
-	 *             getRootRequestMapperAsCompound().add(new MountedMapper(path,
-	 *             bookmarkablePageClass))}
+	 *            the path to mount the page class on
+	 * @param pageClass
+	 *            the page class to be mounted
 	 */
-	@Deprecated
-	public final <T extends Page> void mountBookmarkablePage(final String path,
-		final Class<T> bookmarkablePageClass)
+	public final <T extends Page> void mountPage(final String path, final Class<T> pageClass)
 	{
-		mount(new MountedMapper(path, bookmarkablePageClass));
+		getRootRequestMapperAsCompound().add(new MountedMapper(path, pageClass));
 	}
-
 
 	/**
 	 * Mounts a shared resource class to the given path.
 	 * 
 	 * @param path
-	 *            the path to mount the resource class on
+	 *            the path to mount the resource reference on
 	 * @param reference
 	 *            resource reference to be mounted
-	 * 
-	 * @deprecated - not sure what to use yet but this will be deprecated :)
 	 */
-	@Deprecated
 	public final void mountSharedResource(final String path, final ResourceReference reference)
 	{
 		getResourceReferenceRegistry().registerResourceReference(reference);
-		// TODO NG Implement mounted resources mapper
-		throw new UnsupportedOperationException("Implement Mapper");
+		getRootRequestMapperAsCompound().add(new ResourceMapper(path, reference));
 	}
 
 
@@ -373,14 +361,14 @@ public abstract class WebApplication extends Application
 	 * hide the details from the user. A appropriate WebRequest must be implemented and configured
 	 * to decode the encoded URL.
 	 * 
-	 * @param httpServletRequest
+	 * @param webRequest
 	 * @param httpServletResponse
 	 * @return a WebResponse object
 	 */
-	protected WebResponse newWebResponse(final HttpServletRequest httpServletRequest,
+	protected WebResponse newWebResponse(final WebRequest webRequest,
 		final HttpServletResponse httpServletResponse)
 	{
-		return new HeaderBufferingWebResponse(new ServletWebResponse(httpServletRequest,
+		return new HeaderBufferingWebResponse(new ServletWebResponse((ServletWebRequest)webRequest,
 			httpServletResponse));
 	}
 
@@ -688,12 +676,6 @@ public abstract class WebApplication extends Application
 			return buffered;
 		}
 		return null;
-	}
-
-	@Override
-	public void set()
-	{
-		ThreadContext.setApplication(this);
 	}
 
 	@Override

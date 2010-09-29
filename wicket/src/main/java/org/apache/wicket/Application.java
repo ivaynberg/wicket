@@ -28,7 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.apache.wicket.application.IComponentInitializationListener;
 import org.apache.wicket.application.IComponentInstantiationListener;
 import org.apache.wicket.application.IComponentOnAfterRenderListener;
 import org.apache.wicket.application.IComponentOnBeforeRenderListener;
@@ -53,11 +55,6 @@ import org.apache.wicket.page.DefaultPageManagerContext;
 import org.apache.wicket.page.IPageManager;
 import org.apache.wicket.page.IPageManagerContext;
 import org.apache.wicket.page.PageAccessSynchronizer;
-import org.apache.wicket.page.PersistentPageManager;
-import org.apache.wicket.pageStore.DefaultPageStore;
-import org.apache.wicket.pageStore.DiskDataStore;
-import org.apache.wicket.pageStore.IDataStore;
-import org.apache.wicket.pageStore.IPageStore;
 import org.apache.wicket.protocol.http.DummyRequestLogger;
 import org.apache.wicket.protocol.http.IRequestLogger;
 import org.apache.wicket.protocol.http.WebApplication;
@@ -126,7 +123,7 @@ import org.slf4j.LoggerFactory;
  * application without additional overhead (beyond the ResourceReference instance held by each
  * referee) and will yield a stable URL, permitting efficient browser caching of the resource (even
  * if the resource is dynamically generated). Resources shared in this manner may also be localized.
- * See {@link org.apache.wicket.ResourceReference} for more details.
+ * See {@link org.apache.wicket.request.resource.ResourceReference} for more details.
  * 
  * <li><b>Custom Session Subclasses</b>- In order to install your own {@link Session} subclass you
  * must override Application{@link #newSession(Request, Response)}. For subclasses of
@@ -143,6 +140,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	public static final String CONFIGURATION = "configuration";
 
 	/** Configuration type constant for getting the context path out of the web.xml */
+	// TODO this seems to be used nowhere ... either remove it or re-implement it
 	public static final String CONTEXTPATH = "contextpath";
 
 	/** Configuration type constant for deployment */
@@ -177,6 +175,9 @@ public abstract class Application implements UnboundListener, IEventSink
 	/** list of {@link IComponentInstantiationListener}s. */
 	private IComponentInstantiationListener[] componentInstantiationListeners = new IComponentInstantiationListener[0];
 
+	/** list of {@link IComponentInitializationListener}s. */
+	private CopyOnWriteArrayList<IComponentInitializationListener> componentInitializationListeners = new CopyOnWriteArrayList<IComponentInitializationListener>();
+
 	/** The converter locator instance. */
 	private IConverterLocator converterLocator;
 
@@ -203,6 +204,8 @@ public abstract class Application implements UnboundListener, IEventSink
 
 	/** page renderer provider */
 	private IPageRendererProvider pageRendererProvider;
+
+	private PageAccessSynchronizer pageAccessSynchronizer;
 
 	/** request cycle provider */
 	private IRequestCycleProvider requestCycleProvider;
@@ -238,15 +241,6 @@ public abstract class Application implements UnboundListener, IEventSink
 	}
 
 	/**
-	 * Assign this application to current thread. This method should never be called by framework
-	 * clients.
-	 */
-	public void set()
-	{
-		ThreadContext.setApplication(this);
-	}
-
-	/**
 	 * Gets the Application based on the application key of that application. You typically never
 	 * have to use this method unless you are working on an integration project.
 	 * 
@@ -257,8 +251,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	 */
 	public static Application get(String applicationKey)
 	{
-		Application application = applicationKeyToApplication.get(applicationKey);
-		return application;
+		return applicationKeyToApplication.get(applicationKey);
 	}
 
 	/**
@@ -319,9 +312,9 @@ public abstract class Application implements UnboundListener, IEventSink
 		}
 
 		// if an instance of this listener is already present ignore this call
-		for (int i = 0; i < componentInstantiationListeners.length; i++)
+		for (IComponentInstantiationListener componentInstantiationListener : componentInstantiationListeners)
 		{
-			if (listener == componentInstantiationListeners[i])
+			if (listener == componentInstantiationListener)
 			{
 				return;
 			}
@@ -332,6 +325,49 @@ public abstract class Application implements UnboundListener, IEventSink
 			componentInstantiationListeners.length);
 		newListeners[componentInstantiationListeners.length] = listener;
 		componentInstantiationListeners = newListeners;
+	}
+
+	/**
+	 * Adds a component initialization listener. This method should typically only be called during
+	 * application startup; it is not thread safe.
+	 * <p>
+	 * Each added listener will be notified after Component's {@link Component#onInitialize()}
+	 * method has been executed.
+	 * </p>
+	 * <p>
+	 * Note: wicket does not guarantee the execution order of added listeners
+	 * 
+	 * @param listener
+	 *            the listener to add
+	 */
+	public final void addComponentInitializationListener(
+		final IComponentInitializationListener listener)
+	{
+		if (listener == null)
+		{
+			throw new IllegalArgumentException("argument listener may not be null");
+		}
+
+		if (componentInitializationListeners.contains(listener))
+		{
+			return;
+		}
+		componentInitializationListeners.add(listener);
+	}
+
+	/**
+	 * Fires registered {@link IComponentInitializationListener}s on the component
+	 * 
+	 * @param component
+	 * 
+	 * @see #addComponentInitializationListener(IComponentInitializationListener)
+	 */
+	public final void fireComponentInitializationListeners(Component component)
+	{
+		for (IComponentInitializationListener listener : componentInitializationListeners)
+		{
+			listener.onInitialize(component);
+		}
 	}
 
 	/**
@@ -546,7 +582,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	}
 
 	/**
-	 * Gets the {@link RequestLogger}.
+	 * Gets the {@link IRequestLogger}.
 	 * 
 	 * @return The RequestLogger
 	 */
@@ -711,8 +747,8 @@ public abstract class Application implements UnboundListener, IEventSink
 	public abstract Session newSession(Request request, Response response);
 
 	/**
-	 * Removes a component instantiation listener. This method should typicaly only be called during
-	 * application startup; it is not thread safe.
+	 * Removes a component instantiation listener. This method should typically only be called
+	 * during application startup; it is not thread safe.
 	 * 
 	 * @param listener
 	 *            the listener to remove
@@ -725,7 +761,7 @@ public abstract class Application implements UnboundListener, IEventSink
 
 		if (listener != null && len > 0)
 		{
-			int pos = 0;
+			int pos;
 
 			for (pos = 0; pos < len; pos++)
 			{
@@ -770,7 +806,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	 * 
 	 * @param className
 	 */
-	private final void addInitializer(String className)
+	private void addInitializer(String className)
 	{
 		IInitializer initializer = (IInitializer)WicketObjects.newInstance(className);
 		if (initializer != null)
@@ -783,11 +819,10 @@ public abstract class Application implements UnboundListener, IEventSink
 	 * Iterate initializers list, calling any {@link org.apache.wicket.IDestroyer} instances found
 	 * in it.
 	 */
-	private final void callDestroyers()
+	private void callDestroyers()
 	{
-		for (Iterator<IInitializer> iter = initializers.iterator(); iter.hasNext();)
+		for (IInitializer initializer : initializers)
 		{
-			IInitializer initializer = iter.next();
 			if (initializer instanceof IDestroyer)
 			{
 				log.info("[" + getName() + "] destroy: " + initializer);
@@ -799,11 +834,10 @@ public abstract class Application implements UnboundListener, IEventSink
 	/**
 	 * Iterate initializers list, calling any instances found in it.
 	 */
-	private final void callInitializers()
+	private void callInitializers()
 	{
-		for (Iterator<IInitializer> iter = initializers.iterator(); iter.hasNext();)
+		for (IInitializer initializer : initializers)
 		{
-			IInitializer initializer = iter.next();
 			log.info("[" + getName() + "] init: " + initializer);
 			initializer.init(this);
 		}
@@ -844,7 +878,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	 * @param properties
 	 *            Properties map with names of any library initializers in it
 	 */
-	private final void load(final Properties properties)
+	private void load(final Properties properties)
 	{
 		addInitializer(properties.getProperty("initializer"));
 		addInitializer(properties.getProperty(getName() + "-initializer"));
@@ -925,7 +959,7 @@ public abstract class Application implements UnboundListener, IEventSink
 
 		converterLocator = newConverterLocator();
 
-		setPageManagerProvider(new DefaultPageManagerProvider());
+		setPageManagerProvider(new DefaultPageManagerProvider(this));
 		resourceReferenceRegistry = newResourceReferenceRegistry();
 		sharedResources = newSharedResources(resourceReferenceRegistry);
 
@@ -933,6 +967,8 @@ public abstract class Application implements UnboundListener, IEventSink
 		setRootRequestMapper(new SystemMapper(this));
 
 		pageFactory = newPageFactory();
+
+		pageAccessSynchronizer = new PageAccessSynchronizer(getRequestCycleSettings().getTimeout());
 
 		requestCycleProvider = new DefaultRequestCycleProvider();
 	}
@@ -1032,9 +1068,8 @@ public abstract class Application implements UnboundListener, IEventSink
 	{
 		if (componentPreOnBeforeRenderListeners != null)
 		{
-			for (Iterator<IComponentOnBeforeRenderListener> iter = componentPreOnBeforeRenderListeners.iterator(); iter.hasNext();)
+			for (IComponentOnBeforeRenderListener listener : componentPreOnBeforeRenderListeners)
 			{
-				IComponentOnBeforeRenderListener listener = iter.next();
 				listener.onBeforeRender(component);
 			}
 		}
@@ -1087,9 +1122,8 @@ public abstract class Application implements UnboundListener, IEventSink
 	{
 		if (componentPostOnBeforeRenderListeners != null)
 		{
-			for (Iterator<IComponentOnBeforeRenderListener> iter = componentPostOnBeforeRenderListeners.iterator(); iter.hasNext();)
+			for (IComponentOnBeforeRenderListener listener : componentPostOnBeforeRenderListeners)
 			{
-				IComponentOnBeforeRenderListener listener = iter.next();
 				listener.onBeforeRender(component);
 			}
 		}
@@ -1142,9 +1176,8 @@ public abstract class Application implements UnboundListener, IEventSink
 	{
 		if (componentOnAfterRenderListeners != null)
 		{
-			for (Iterator<IComponentOnAfterRenderListener> iter = componentOnAfterRenderListeners.iterator(); iter.hasNext();)
+			for (IComponentOnAfterRenderListener listener : componentOnAfterRenderListeners)
 			{
-				IComponentOnAfterRenderListener listener = iter.next();
 				listener.onAfterRender(component);
 			}
 		}
@@ -1196,9 +1229,6 @@ public abstract class Application implements UnboundListener, IEventSink
 
 	private volatile IPageManager pageManager;
 	private IPageManagerProvider pageManagerProvider;
-
-	private final PageAccessSynchronizer pageAccessSynchronizer = new PageAccessSynchronizer(
-		Duration.minutes(2)); // TODO WICKET-NG timeout configurable
 
 	public final IPageManagerProvider getPageManagerProvider()
 	{
@@ -1310,9 +1340,9 @@ public abstract class Application implements UnboundListener, IEventSink
 	private IPageFactory pageFactory;
 
 	/**
-	 * Override to create custom {@link PageFactory}
+	 * Override to create custom {@link IPageFactory}
 	 * 
-	 * @return new {@link PageFactory} instance.
+	 * @return new {@link IPageFactory} instance.
 	 */
 	protected IPageFactory newPageFactory()
 	{
@@ -1320,7 +1350,7 @@ public abstract class Application implements UnboundListener, IEventSink
 	}
 
 	/**
-	 * Returns {@link PageFactory} for this application.
+	 * Returns {@link IPageFactory} for this application.
 	 * 
 	 * @return
 	 */
@@ -1371,11 +1401,11 @@ public abstract class Application implements UnboundListener, IEventSink
 		{
 			if (pageParameters == null)
 			{
-				return getPageFactory().newPage((Class<? extends Page>)pageClass);
+				return getPageFactory().newPage(pageClass);
 			}
 			else
 			{
-				return getPageFactory().newPage((Class<? extends Page>)pageClass, pageParameters);
+				return getPageFactory().newPage(pageClass, pageParameters);
 			}
 		}
 
@@ -1537,20 +1567,5 @@ public abstract class Application implements UnboundListener, IEventSink
 	/** {@inheritDoc} */
 	public void onEvent(IEvent<?> event)
 	{
-	}
-
-	private class DefaultPageManagerProvider implements IPageManagerProvider
-	{
-
-		public IPageManager get(IPageManagerContext context)
-		{
-			int cacheSize = 40;
-			int fileChannelPoolCapacity = 50;
-			IDataStore dataStore = new DiskDataStore(getName(), 1000000, fileChannelPoolCapacity);
-			IPageStore pageStore = new DefaultPageStore(getName(), dataStore, cacheSize);
-			return new PersistentPageManager(getName(), pageStore, context);
-
-		}
-
 	}
 }

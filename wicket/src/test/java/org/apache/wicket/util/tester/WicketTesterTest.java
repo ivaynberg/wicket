@@ -318,7 +318,7 @@ public class WicketTesterTest extends TestCase
 
 				page.replace(link);
 
-				target.addComponent(link);
+				target.add(link);
 			}
 		};
 		ajaxLink.setOutputMarkupId(true);
@@ -388,7 +388,7 @@ public class WicketTesterTest extends TestCase
 			public void onClick(AjaxRequestTarget target)
 			{
 				labelModel.setObject("Label which needs encoding: [] ][");
-				target.addComponent(label);
+				target.add(label);
 			}
 		};
 		ajaxLink.setOutputMarkupId(true);
@@ -468,6 +468,43 @@ public class WicketTesterTest extends TestCase
 
 		// Click the submit
 		tester.clickLink("submitLink");
+	}
+
+	/**
+	 * Test that the clickLink on AjaxSubmitLink will re-submit/preserve the values for all form
+	 * components WICKET-3053
+	 */
+	public void testClickLink_ajaxSubmitLink_preservesFormComponentValues()
+	{
+		tester.startPage(MockPageAjaxSubmitLinkSubmitsWholeForm.class);
+
+		tester.assertRenderedPage(MockPageAjaxSubmitLinkSubmitsWholeForm.class);
+
+		FormTester formTester = tester.newFormTester("form");
+
+		formTester.setValue("name", "Bob");
+
+// do not call 'formTester.submit()'. The value of 'name' will be submitted by
+// AjaxSubmitLink
+// formTester.submit();
+
+		// this will submit 'name=Bob'
+		tester.clickLink("helloSubmit", true);
+
+		tester.assertModelValue("form:name", "Bob");
+
+		tester.assertComponentOnAjaxResponse("text");
+
+		tester.assertModelValue("text", "Hello Bob");
+
+		// this should preserve the value of 'name'
+		tester.clickLink("goodbyeSubmit", true);
+
+		tester.assertModelValue("form:name", "Bob");
+
+		tester.assertComponentOnAjaxResponse("text");
+
+		tester.assertModelValue("text", "Goodbye Bob");
 	}
 
 	/**

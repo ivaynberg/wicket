@@ -22,11 +22,13 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -69,6 +71,7 @@ import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.mock.MockApplication;
 import org.apache.wicket.mock.MockPageManager;
+import org.apache.wicket.mock.MockRequestParameters;
 import org.apache.wicket.mock.MockSessionStore;
 import org.apache.wicket.page.IPageManager;
 import org.apache.wicket.page.IPageManagerContext;
@@ -262,7 +265,7 @@ public class BaseWicketTester
 		// FIXME some tests are leaking applications by not calling destroy on them or overriding
 		// teardown() without calling super, for now we work around by making each name unique
 		this.application.setName("WicketTesterApplication-" + UUID.randomUUID());
-		this.application.set();
+		ThreadContext.setApplication(application);
 
 		application.setServletContext(servletContext);
 
@@ -303,8 +306,9 @@ public class BaseWicketTester
 		request.setURL(request.getContextPath() + request.getServletPath() + "/");
 		response = new MockHttpServletResponse(request);
 
-		requestCycle = application.createRequestCycle(createServletWebRequest(),
-			createServletWebResponse());
+		ServletWebRequest servletWebRequest = createServletWebRequest();
+		requestCycle = application.createRequestCycle(servletWebRequest,
+			createServletWebResponse(servletWebRequest));
 		requestCycle.setCleanupFeedbackMessagesOnDetach(false);
 		ThreadContext.setRequestCycle(requestCycle);
 
@@ -317,9 +321,9 @@ public class BaseWicketTester
 	/**
 	 * @return
 	 */
-	private ServletWebResponse createServletWebResponse()
+	private ServletWebResponse createServletWebResponse(ServletWebRequest servletWebRequest)
 	{
-		return new ServletWebResponse(request, response)
+		return new ServletWebResponse(servletWebRequest, response)
 		{
 			@Override
 			public void sendRedirect(String url)
@@ -741,7 +745,7 @@ public class BaseWicketTester
 		transform(url);
 		request.setUrl(url);
 		request.addHeader("Wicket-Ajax-BaseURL", url.toString());
-		request.addHeader("Wicket-Ajax", "Wicket-Ajax");
+		request.addHeader("Wicket-Ajax", "true");
 		processRequest();
 	}
 
@@ -768,7 +772,7 @@ public class BaseWicketTester
 		transform(url);
 		request.setUrl(url);
 		request.addHeader("Wicket-Ajax-BaseURL", url.toString());
-		request.addHeader("Wicket-Ajax", "Wicket-Ajax");
+		request.addHeader("Wicket-Ajax", "true");
 		processRequest();
 	}
 
@@ -1436,7 +1440,7 @@ public class BaseWicketTester
 
 	/**
 	 * Tests that a <code>Component</code> has been added to a <code>AjaxRequestTarget</code>, using
-	 * {@link AjaxRequestTarget#addComponent(Component)}. This method actually tests that a
+	 * {@link AjaxRequestTarget#add(Component)}. This method actually tests that a
 	 * <code>Component</code> is on the Ajax response sent back to the client.
 	 * <p>
 	 * PLEASE NOTE! This method doesn't actually insert the <code>Component</code> in the client DOM
@@ -1656,13 +1660,53 @@ public class BaseWicketTester
 		String failMessage = "No form attached to the submitlink.";
 		notNull(failMessage, form);
 
+		serializeFormToRequest(form);
+
 		Url url = Url.parse(behavior.getCallbackUrl().toString(),
 			Charset.forName(request.getCharacterEncoding()));
 		transform(url);
 		request.addHeader("Wicket-Ajax-BaseURL", url.toString());
-		request.addHeader("Wicket-Ajax", "Wicket-Ajax");
+		request.addHeader("Wicket-Ajax", "true");
 		request.setUrl(url);
 		processRequest(request, null);
+	}
+
+	/**
+	 * Puts all not already scheduled (e.g. via {@link FormTester#setValue(String, String)}) form
+	 * component values in the post parameters for the next form submit
+	 * 
+	 * @param form
+	 *            the {@link Form} which components should be submitted
+	 */
+	private void serializeFormToRequest(final Form<?> form)
+	{
+		final MockRequestParameters postParameters = request.getPostParameters();
+
+		final Set<String> currentParameterNamesSet = postParameters.getParameterNames();
+
+		form.visitFormComponents(new IVisitor<FormComponent<?>, Void>()
+		{
+			public void component(final FormComponent<?> formComponent, final IVisit<Void> visit)
+			{
+				final String inputName = formComponent.getInputName();
+				if (!currentParameterNamesSet.contains(inputName))
+				{
+					final Object modelObject = formComponent.getModelObject();
+					if (modelObject instanceof Collection<?>)
+					{
+						final Collection<?> collectionModelObject = (Collection<?>)modelObject;
+						for (Object value : collectionModelObject)
+						{
+							postParameters.addParameterValue(inputName, value.toString());
+						}
+					}
+					else
+					{
+						postParameters.addParameterValue(inputName, formComponent.getValue());
+					}
+				}
+			}
+		});
 	}
 
 	/**
@@ -2011,10 +2055,9 @@ public class BaseWicketTester
 	 */
 	private class TestPageManagerProvider implements IPageManagerProvider
 	{
-
-		public IPageManager get(IPageManagerContext context)
+		public IPageManager get(IPageManagerContext pageManagerContext)
 		{
-			return new MockPageManager(context);
+			return new MockPageManager();
 		}
 
 	}

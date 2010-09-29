@@ -61,7 +61,7 @@ public class EnclosureTest extends WicketTestCase
 	 */
 	public void testRenderHomePage4() throws Exception
 	{
-		executeTest(EnclosurePage_4.class, new PageParameters("visible=false"),
+		executeTest(EnclosurePage_4.class, new PageParameters().set("visible", false),
 			"EnclosurePageExpectedResult_4.html");
 	}
 
@@ -70,7 +70,7 @@ public class EnclosureTest extends WicketTestCase
 	 */
 	public void testRenderHomePage4_1() throws Exception
 	{
-		executeTest(EnclosurePage_4.class, new PageParameters("visible=true"),
+		executeTest(EnclosurePage_4.class, new PageParameters().set("visible", true),
 			"EnclosurePageExpectedResult_4-1.html");
 	}
 
@@ -79,7 +79,7 @@ public class EnclosureTest extends WicketTestCase
 	 */
 	public void testRenderHomePage5() throws Exception
 	{
-		executeTest(EnclosurePage_5.class, new PageParameters("visible=false"),
+		executeTest(EnclosurePage_5.class, new PageParameters().set("visible", false),
 			"EnclosurePageExpectedResult_5.html");
 	}
 
@@ -88,7 +88,7 @@ public class EnclosureTest extends WicketTestCase
 	 */
 	public void testRenderHomePage5_1() throws Exception
 	{
-		executeTest(EnclosurePage_5.class, new PageParameters("visible=true"),
+		executeTest(EnclosurePage_5.class, new PageParameters().set("visible", true),
 			"EnclosurePageExpectedResult_5-1.html");
 	}
 
@@ -101,19 +101,19 @@ public class EnclosureTest extends WicketTestCase
 	{
 		// render with enclosure initially visible
 		tester.startPage(EnclosurePage_6.class);
-		String doc = tester.getLastResponse().getTextResponse().toString();
+		String doc = tester.getLastResponse().getDocument();
 		assertTrue(doc.contains("content1"));
 		assertTrue(doc.contains("content2"));
 
 		// render with enclosure hidden
 		tester.clickLink("link");
-		doc = tester.getLastResponse().getTextResponse().toString();
+		doc = tester.getLastResponse().getDocument();
 		assertFalse(doc.contains("content1"));
 		assertFalse(doc.contains("content2"));
 
 		// render with enclosure visible again
 		tester.clickLink("link");
-		doc = tester.getLastResponse().getTextResponse().toString();
+		doc = tester.getLastResponse().getDocument();
 		assertTrue(doc.contains("content1"));
 		assertTrue(doc.contains("content2"));
 	}
@@ -151,7 +151,7 @@ public class EnclosureTest extends WicketTestCase
 
 	private void assertResultPage(final String file) throws IOException
 	{
-		String document = tester.getLastResponse().getTextResponse().toString();
+		String document = tester.getLastResponse().getDocument();
 		document = document.replaceAll("[1-9]+[.]IFormSubmitListener", "1.IFormSubmitListener");
 		DiffUtil.validatePage(document, getClass(), file, true);
 	}
@@ -161,8 +161,6 @@ public class EnclosureTest extends WicketTestCase
 	 */
 	public void testRender9() throws Exception
 	{
-		Class<? extends Page> clazz = EnclosurePage_9.class;
-
 		executePage(new EnclosurePage_9(), "EnclosurePageExpectedResult_9.html");
 		EnclosurePage_9 page = (EnclosurePage_9)tester.getLastRenderedPage();
 		assertTrue(page.inputOnBeforeRender);

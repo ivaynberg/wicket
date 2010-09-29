@@ -40,8 +40,8 @@ import org.apache.wicket.request.Url;
 import org.apache.wicket.request.Url.QueryParameter;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.util.io.Streams;
-import org.apache.wicket.util.lang.Bytes;
 import org.apache.wicket.util.lang.Args;
+import org.apache.wicket.util.lang.Bytes;
 import org.apache.wicket.util.string.PrependingStringBuffer;
 import org.apache.wicket.util.string.StringValue;
 import org.apache.wicket.util.string.Strings;
@@ -371,4 +371,5 @@ public class ServletWebRequest extends WebRequest
 	{
 		return RequestUtils.getCharset(httpServletRequest);
 	}
+
 }

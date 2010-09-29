@@ -26,6 +26,7 @@ import org.apache.wicket.request.handler.EmptyRequestHandler;
 import org.apache.wicket.request.handler.IPageRequestHandler;
 import org.apache.wicket.request.handler.PageProvider;
 import org.apache.wicket.request.handler.RenderPageRequestHandler;
+import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.handler.ErrorCodeResponseHandler;
 import org.apache.wicket.request.mapper.StalePageException;
 import org.apache.wicket.settings.IExceptionSettings;
@@ -42,34 +43,6 @@ public class DefaultExceptionMapper implements IExceptionMapper
 {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultExceptionMapper.class);
 
-	// default policy is to not change the URL in the address bar of the browser:
-	// - the url syntax eventually gives the user some indication of the error
-	// - the user can hit refresh in the browser to retry loading the page
-	private RenderPageRequestHandler.RedirectPolicy redirectPolicy = RenderPageRequestHandler.RedirectPolicy.NEVER_REDIRECT;
-
-	/**
-	 * get the redirect policy in case of error (controls if the URL changes in case of displaying
-	 * an error)
-	 * 
-	 * @return redirect policy
-	 */
-	public RenderPageRequestHandler.RedirectPolicy getRedirectPolicy()
-	{
-		return redirectPolicy;
-	}
-
-	/**
-	 * set the redirect policy in case of error (you can control if the URL changes in case of
-	 * displaying an error)
-	 * 
-	 * @param redirectPolicy
-	 *            redirection policy
-	 */
-	public void setRedirectPolicy(RenderPageRequestHandler.RedirectPolicy redirectPolicy)
-	{
-		this.redirectPolicy = redirectPolicy;
-	}
-
 	public IRequestHandler map(Exception e)
 	{
 		try
@@ -79,11 +52,9 @@ public class DefaultExceptionMapper implements IExceptionMapper
 		catch (RuntimeException e2)
 		{
 			// hmmm, we were already handling an exception! give up
-			logger.error("unexpected exception when handling another exception: " + e.getMessage(),
-				e);
+			logger.error("unexpected exception when handling another exception: " + e.getMessage(), e);
 			return new ErrorCodeResponseHandler(500);
 		}
-
 	}
 
 	private IRequestHandler internalMap(Exception e)
@@ -135,7 +106,22 @@ public class DefaultExceptionMapper implements IExceptionMapper
 
 	private RenderPageRequestHandler createPageRequestHandler(PageProvider pageProvider)
 	{
-		return new RenderPageRequestHandler(pageProvider, redirectPolicy);
+		RequestCycle requestCycle = RequestCycle.get();
+
+		if (requestCycle == null)
+			throw new IllegalStateException("there is no current request cycle attached to this thread");
+
+		RenderPageRequestHandler.RedirectPolicy redirect = RenderPageRequestHandler.RedirectPolicy.NEVER_REDIRECT;
+
+		// in case of ajax we must redirect to show the error page
+		if (requestCycle.getRequest() instanceof WebRequest)
+		{
+			WebRequest webRequest = (WebRequest)requestCycle.getRequest();
+
+			if(webRequest.isAjax())
+				redirect = RenderPageRequestHandler.RedirectPolicy.ALWAYS_REDIRECT;
+		}
+		return new RenderPageRequestHandler(pageProvider, redirect);
 	}
 
 	/**
@@ -145,16 +131,17 @@ public class DefaultExceptionMapper implements IExceptionMapper
 	private Page extractCurrentPage()
 	{
 		final RequestCycle requestCycle = RequestCycle.get();
-		final IRequestHandler activeRequestHandler = requestCycle.getActiveRequestHandler();
 
-		Page currentPage = null;
+		IRequestHandler handler = requestCycle.getActiveRequestHandler();
 
-		if (activeRequestHandler instanceof IPageRequestHandler)
+		if(handler == null)
+			handler = requestCycle.getRequestHandlerScheduledAfterCurrent();
+
+		if (handler instanceof IPageRequestHandler)
 		{
-			IPageRequestHandler pageRequestHandler = (IPageRequestHandler)activeRequestHandler;
-			currentPage = (Page)pageRequestHandler.getPage();
+			IPageRequestHandler pageRequestHandler = (IPageRequestHandler)handler;
+			return (Page)pageRequestHandler.getPage();
 		}
-
-		return currentPage;
+		return null;
 	}
 }

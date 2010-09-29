@@ -77,9 +77,9 @@ public class MockApplication extends WebApplication
 	private static class MockPageManagerProvider implements IPageManagerProvider
 	{
 
-		public IPageManager get(IPageManagerContext context)
+		public IPageManager get(IPageManagerContext pageManagerContext)
 		{
-			return new MockPageManager(context);
+			return new MockPageManager();
 		}
 
 

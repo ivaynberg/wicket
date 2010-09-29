@@ -1107,7 +1107,7 @@ Wicket.Ajax.Call.prototype = {
 					}
 				}
 				form = form.parentNode;
-			} while(form.tagName.toLowerCase() != "form" && form.tagName.toLowerCase() != "body")
+			} while(form.tagName.toLowerCase() != "form" && form !== document.body)
 		}	
 
 		
@@ -1274,8 +1274,10 @@ Wicket.Ajax.Call.prototype = {
 		           this.processEvaluation(steps, node);
 		        } else if (node.tagName == "header-contribution") {
 		           this.processHeaderContribution(steps, node);
+		        } else if (node.tagName == "redirect") {
+		           this.processRedirect(steps, node);
 		        }
-		        
+
 		    }
 			if (stepIndexOfLastReplacedComponent != -1) {
 				this.processFocusedComponentReplaceCheck(steps, stepIndexOfLastReplacedComponent);
@@ -1340,7 +1342,7 @@ Wicket.Ajax.Call.prototype = {
 			var element = Wicket.$(compId);
 
 			if (element == null || typeof(element) == "undefined") {			
-				Wicket.Log.error("Wicket.Ajax.Call.processComponent: Component with id [["+compId+"]] a was not found while trying to perform markup update. Make sure you called component.setOutputMarkupId(true) on the component whose markup you are trying to update.");
+				Wicket.Log.error("Wicket.Ajax.Call.processComponent: Component with id [["+compId+"]] was not found while trying to perform markup update. Make sure you called component.setOutputMarkupId(true) on the component whose markup you are trying to update.");
 			} else {
 				// replace the component
 				Wicket.replaceOuterHtml(element, text);
@@ -1397,6 +1399,13 @@ Wicket.Ajax.Call.prototype = {
 	processHeaderContribution: function(steps, node) {
 		var c = new Wicket.Head.Contributor();
 		c.processContribution(steps, node);
+	},
+
+	// Adds a closure that processes a redirect
+	processRedirect: function(steps, node) {
+		var text = node.firstChild.nodeValue;
+		Wicket.Log.info("Redirecting to: "+text);
+		window.location=text;
 	},
 
 	// mark the focused component so that we know if it has been replaced by response
