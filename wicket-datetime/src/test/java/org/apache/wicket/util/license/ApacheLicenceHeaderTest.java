@@ -16,7 +16,6 @@
  */
 package org.apache.wicket.util.license;
 
-
 /**
  * Test that the license headers are in place in this project. The tests are run from
  * {@link ApacheLicenseHeaderTestCase}, but you can add project specific tests here if needed.
@@ -25,47 +24,37 @@ package org.apache.wicket.util.license;
  */
 public class ApacheLicenceHeaderTest extends ApacheLicenseHeaderTestCase
 {
-
 	/**
 	 * Construct.
 	 */
 	public ApacheLicenceHeaderTest()
 	{
 		// addHeaders = true;
-		htmlIgnore = new String[] {
-		/*
-		 * .html in test is very test specific and a license header would confuse and make it
-		 * unclear what the test is about.
-		 */
-		"src/test/java",
+
 		/*
 		 * See NOTICE.txt
 		 */
-		"src/main/java/org/apache/wicket/util/diff" };
+		htmlIgnore.add("src/main/java/org/apache/wicket/util/diff");
 
 		/*
 		 * YUI lib. See NOTICE
 		 */
-		cssIgnore = new String[] {
-				"src/main/java/org/apache/wicket/extensions/yui/calendar/assets/skins/sam/calendar.css",
-				"src/main/java/org/apache/wicket/extensions/yui/calendar/assets/skins/sam/calendar.css" };
+		cssIgnore.add("src/main/java/org/apache/wicket/extensions/yui/calendar/assets/skins/sam/calendar.css");
+		cssIgnore.add("src/main/java/org/apache/wicket/extensions/yui/calendar/assets/skins/sam/calendar.css");
 
 		/*
 		 * YUI lib. See NOTICE
 		 */
-		javaScriptIgnore = new String[] {
-				"src/main/java/org/apache/wicket/extensions/yui/yuiloader.js",
-				"src/main/java/org/apache/wicket/extensions/yui/yuiloader-min.js",
-				"src/main/java/org/apache/wicket/extensions/yui/yahoo/yahoo.js",
-				"src/main/java/org/apache/wicket/extensions/yui/yahoo/yahoo-min.js",
-				"src/main/java/org/apache/wicket/extensions/yui/yahoodomevent/yahoo-dom-event.js",
-				"src/main/java/org/apache/wicket/extensions/yui/event/event.js",
-				"src/main/java/org/apache/wicket/extensions/yui/event/event-min.js",
-				"src/main/java/org/apache/wicket/extensions/yui/dom/dom.js",
-				"src/main/java/org/apache/wicket/extensions/yui/dom/dom-min.js",
-				"src/main/java/org/apache/wicket/extensions/yui/calendar/calendar.js",
-				"src/main/java/org/apache/wicket/extensions/yui/calendar/calendar-min.js" };
-
-		xmlIgnore = new String[] { ".settings" };
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/yuiloader.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/yuiloader-min.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/yahoo/yahoo.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/yahoo/yahoo-min.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/yahoodomevent/yahoo-dom-event.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/event/event.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/event/event-min.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/dom/dom.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/dom/dom-min.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/calendar/calendar.js");
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/extensions/yui/calendar/calendar-min.js");
 	}
 }

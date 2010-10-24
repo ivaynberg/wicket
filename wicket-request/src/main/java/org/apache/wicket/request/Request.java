@@ -38,7 +38,71 @@ public abstract class Request
 	public abstract Url getUrl();
 
 	/**
-	 * In case this request has been created using {@link #requestWithUrl(Url)}, this method should
+	 * Returns the url against which the client, usually the browser, will resolve relative urls in
+	 * the rendered markup. If the client is a browser this is the url in the browser's address bar.
+	 * 
+	 * <p>
+	 * Under normal circumstances the client and request ({@link #getUrl()}) urls are the same.
+	 * Handling an Ajax request, however, is a good example of when they may be different.
+	 * Technologies such as XHR are free to request whatever url they wish <strong>without
+	 * modifying</strong> the client url; however, any produced urls will be evaluated by the client
+	 * against the client url - not against the request url.
+	 * </p>
+	 * <p>
+	 * Lets take a simple example: <br>
+	 * 
+	 * Suppose we are on a client detail page. This page contains an Ajax link which opens a list of
+	 * client's orders. Each order has a link that goes to the order detail page.
+	 * 
+	 * The client detail page is located at
+	 * 
+	 * <pre>
+	 * /detail/customer/15
+	 * </pre>
+	 * 
+	 * and the order detail page is located at
+	 * 
+	 * <pre>
+	 * /order/22
+	 * </pre>
+	 * 
+	 * The Ajax link which renders the detail section is located at
+	 * 
+	 * <pre>
+	 *  /detail/wicket?page 3
+	 * </pre>
+	 * 
+	 * Lets run through the execution and see what happens when the XHR request is processed:
+	 * 
+	 * <pre>
+	 * request 1: /details/customer/15
+	 * client url: details/customer/15 (the url in the browser's address bar)
+	 * request url: details/customer/15
+	 * Wicket renders relative Ajax details anchor as ../../wicket/page?3  
+	 * 
+	 * ../../wicket/page?3 resolved against current client url details/customer/15 yields:
+	 * request 2: /wicket/page?3
+	 * client url: customer/15 (unchanged since XHRs requests dont change it)
+	 * request url: wicket/ajax/page?3
+	 * 
+	 * now Wicket has to render a relative url to /details/order/22. If Wicket renders 
+	 * it against the request url it will be: ../order/22, and later evaluated on the
+	 * client will result in /customer/order/22 which is incorrect.
+	 * </pre>
+	 * 
+	 * This is why implementations of {@link Request} must track the client url, so that relative
+	 * urls can be rendered against the same url they will be evaluated against on the client -
+	 * which is not always the same as the request url. For example, Wicket's Ajax implementation
+	 * always sends the current client url in a header along with the XHR request so that Wicket can
+	 * correctly render relative urls against it.
+	 * </p>
+	 * 
+	 * @return client url
+	 */
+	public abstract Url getClientUrl();
+
+	/**
+	 * In case this request has been created using {@link #cloneWithUrl(Url)}, this method should
 	 * return the original URL.
 	 * 
 	 * @return original URL
@@ -86,7 +150,7 @@ public abstract class Request
 	 *            Url instance
 	 * @return request with specified URL.
 	 */
-	public Request requestWithUrl(final Url url)
+	public Request cloneWithUrl(final Url url)
 	{
 		return new Request()
 		{
@@ -118,6 +182,12 @@ public abstract class Request
 			public Charset getCharset()
 			{
 				return Request.this.getCharset();
+			}
+
+			@Override
+			public Url getClientUrl()
+			{
+				return getUrl();
 			}
 		};
 	}

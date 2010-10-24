@@ -42,6 +42,7 @@ import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.util.io.Streams;
 import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.lang.Bytes;
+import org.apache.wicket.util.lang.Checks;
 import org.apache.wicket.util.string.PrependingStringBuffer;
 import org.apache.wicket.util.string.StringValue;
 import org.apache.wicket.util.string.Strings;
@@ -104,6 +105,46 @@ public class ServletWebRequest extends WebRequest
 		}
 	}
 
+	/**
+	 * Returns base url without context or filter mapping.
+	 * 
+	 * Example: if current url is
+	 * 
+	 * <pre>
+	 * http://localhost:8080/context/filter/mapping/wicket/bookmarkable/com.foo.Page?1&id=2
+	 * </pre>
+	 * 
+	 * the base url is wicket/bookmarkable/com.foo.Page
+	 * 
+	 * <pre>
+	 * wicket / bookmarkab
+	 * @see org.apache.wicket.request.Request#getClientUrl()
+	 */
+	@Override
+	public Url getClientUrl()
+	{
+		if (!isAjax())
+		{
+			return Url.parse(getUrl(httpServletRequest, filterPrefix).toString(), getCharset());
+		}
+		else
+		{
+			String base = null;
+
+			base = getHeader(HEADER_AJAX_BASE_URL);
+
+			if (base == null)
+			{
+				base = getRequestParameters().getParameterValue(PARAM_AJAX_BASE_URL).toString(null);
+			}
+
+			Checks.notNull(base, "Current ajax request is missing the base url header or parameter");
+
+			return Url.parse(base, getCharset());
+		}
+
+	}
+
 	private Url getUrl(HttpServletRequest request, String filterPrefix)
 	{
 		if (filterPrefix.length() > 0 && !filterPrefix.endsWith("/"))
@@ -123,7 +164,7 @@ public class ServletWebRequest extends WebRequest
 			url.append(query);
 		}
 
-		return Url.parse(Strings.stripJSessionId(url.toString()), getCharset());
+		return Url.parse(url.toString(), getCharset());
 	}
 
 
@@ -311,7 +352,7 @@ public class ServletWebRequest extends WebRequest
 	}
 
 	@Override
-	public ServletWebRequest requestWithUrl(Url url)
+	public ServletWebRequest cloneWithUrl(Url url)
 	{
 		return new ServletWebRequest(httpServletRequest, filterPrefix, url)
 		{
@@ -371,5 +412,6 @@ public class ServletWebRequest extends WebRequest
 	{
 		return RequestUtils.getCharset(httpServletRequest);
 	}
+
 
 }

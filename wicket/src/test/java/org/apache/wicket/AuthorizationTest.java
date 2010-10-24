@@ -27,6 +27,7 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.model.CompoundPropertyModel;
+import org.apache.wicket.request.component.IRequestableComponent;
 
 
 /**
@@ -53,11 +54,12 @@ public class AuthorizationTest extends WicketTestCase
 	 */
 	public void testCreateDisallowedComponent() throws Exception
 	{
-		tester.getApplication().getSecuritySettings().setAuthorizationStrategy(
-			new DummyAuthorizationStrategy()
+		tester.getApplication()
+			.getSecuritySettings()
+			.setAuthorizationStrategy(new DummyAuthorizationStrategy()
 			{
 				@Override
-				public <T extends Component> boolean isInstantiationAuthorized(
+				public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
 					Class<T> componentClass)
 				{
 					return false;
@@ -82,8 +84,9 @@ public class AuthorizationTest extends WicketTestCase
 	 */
 	public void testRenderAllowedComponent() throws Exception
 	{
-		tester.getApplication().getSecuritySettings().setAuthorizationStrategy(
-			new DummyAuthorizationStrategy());
+		tester.getApplication()
+			.getSecuritySettings()
+			.setAuthorizationStrategy(new DummyAuthorizationStrategy());
 
 		tester.startPage(AuthTestPage1.class);
 		tester.assertRenderedPage(AuthTestPage1.class);
@@ -97,8 +100,9 @@ public class AuthorizationTest extends WicketTestCase
 	 */
 	public void testRenderDisallowedComponent() throws Exception
 	{
-		tester.getApplication().getSecuritySettings().setAuthorizationStrategy(
-			new DummyAuthorizationStrategy()
+		tester.getApplication()
+			.getSecuritySettings()
+			.setAuthorizationStrategy(new DummyAuthorizationStrategy()
 			{
 				/**
 				 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isActionAuthorized(org.apache.wicket.Component,
@@ -126,8 +130,9 @@ public class AuthorizationTest extends WicketTestCase
 	 */
 	public void testEnabledAllowedComponent() throws Exception
 	{
-		tester.getApplication().getSecuritySettings().setAuthorizationStrategy(
-			new DummyAuthorizationStrategy());
+		tester.getApplication()
+			.getSecuritySettings()
+			.setAuthorizationStrategy(new DummyAuthorizationStrategy());
 
 		tester.startPage(AuthTestPage1.class);
 		tester.assertRenderedPage(AuthTestPage1.class);
@@ -148,8 +153,9 @@ public class AuthorizationTest extends WicketTestCase
 	 */
 	public void testEnabledDisallowedComponent() throws Exception
 	{
-		tester.getApplication().getSecuritySettings().setAuthorizationStrategy(
-			new DummyAuthorizationStrategy()
+		tester.getApplication()
+			.getSecuritySettings()
+			.setAuthorizationStrategy(new DummyAuthorizationStrategy()
 			{
 				/**
 				 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isActionAuthorized(org.apache.wicket.Component,
@@ -168,9 +174,7 @@ public class AuthorizationTest extends WicketTestCase
 			});
 		tester.startPage(AuthTestPage1.class);
 		tester.assertRenderedPage(AuthTestPage1.class);
-		tester.getRequest()
-			.getPostParameters()
-			.setParameterValue("form:stringInput", "test");
+		tester.getRequest().getPostParameters().setParameterValue("form:stringInput", "test");
 		try
 		{
 			tester.submitForm("form");
@@ -191,7 +195,8 @@ public class AuthorizationTest extends WicketTestCase
 		/**
 		 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isInstantiationAuthorized(java.lang.Class)
 		 */
-		public <T extends Component> boolean isInstantiationAuthorized(Class<T> componentClass)
+		public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
+			Class<T> componentClass)
 		{
 			return true;
 		}

@@ -16,7 +16,6 @@
  */
 package org.apache.wicket.util.license;
 
-
 /**
  * Test that the license headers are in place in this project. The tests are run from
  * {@link ApacheLicenseHeaderTestCase}, but you can add project specific tests here if needed.
@@ -31,13 +30,5 @@ public class ApacheLicenceHeaderTest extends ApacheLicenseHeaderTestCase
 	public ApacheLicenceHeaderTest()
 	{
 		// addHeaders = true;
-		xmlIgnore = new String[] { ".settings" };
-
-		htmlIgnore = new String[] {
-		/*
-		 * .html in test is very test specific and a license header would confuse and make it
-		 * unclear what the test is about.
-		 */
-		"src/test/java" };
 	}
 }

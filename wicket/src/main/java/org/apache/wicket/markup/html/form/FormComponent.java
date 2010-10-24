@@ -336,7 +336,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 	public static final <R> R visitFormComponentsPostOrder(Component component,
 		final IVisitor<? extends FormComponent, R> visitor)
 	{
-		return Visits.visitComponentsPostOrder(component, visitor, new IVisitFilter()
+		return Visits.visitPostOrder(component, visitor, new IVisitFilter()
 		{
 
 			public boolean visitChildren(Object object)
@@ -379,7 +379,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 			throw new IllegalArgumentException("Argument `visitor` cannot be null");
 		}
 
-		return Visits.visitComponentsPostOrder(component, visitor, new IVisitFilter()
+		return Visits.visitPostOrder(component, visitor, new IVisitFilter()
 		{
 
 			public boolean visitObject(Object object)
@@ -698,7 +698,7 @@ public abstract class FormComponent<T> extends LabeledWebMarkupContainer
 
 		// having input name "submit" causes problems with javascript, so we
 		// create a unique string to replace it by prepending a path separator
-		if (inputName.equals("submit"))
+		if ("submit".equals(inputName.toString()))
 		{
 			inputName.prepend(Component.PATH_SEPARATOR);
 		}

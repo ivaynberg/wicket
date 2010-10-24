@@ -688,6 +688,17 @@ public class WicketTesterTest extends TestCase
 			"value");
 	}
 
+	/**
+	 * Test for WICKET-3123
+	 */
+	public void testSessionBinding()
+	{
+		Session session = tester.getSession();
+		assertTrue(session.isTemporary());
+		session.bind();
+		assertFalse(session.isTemporary());
+	}
+
 	private void setTextFieldAndAssertSubmit(boolean expected)
 	{
 		tester.executeAjaxEvent("form:text", "onkeyup");

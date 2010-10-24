@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.wicket.Component;
 import org.apache.wicket.authorization.Action;
 import org.apache.wicket.authorization.IAuthorizationStrategy;
+import org.apache.wicket.request.component.IRequestableComponent;
 
 
 /**
@@ -53,7 +54,8 @@ public class CompoundAuthorizationStrategy implements IAuthorizationStrategy
 	/**
 	 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isInstantiationAuthorized(java.lang.Class)
 	 */
-	public final <T extends Component> boolean isInstantiationAuthorized(Class<T> componentClass)
+	public final <T extends IRequestableComponent> boolean isInstantiationAuthorized(
+		Class<T> componentClass)
 	{
 		int size = strategies.size();
 		for (int i = 0; i < size; i++)

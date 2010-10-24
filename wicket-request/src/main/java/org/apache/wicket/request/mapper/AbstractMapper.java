@@ -26,7 +26,7 @@ import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.string.Strings;
 
-public abstract class AbstractMapper
+public abstract class AbstractMapper implements IRequestMapper
 {
 
 	/**
@@ -118,7 +118,7 @@ public abstract class AbstractMapper
 			removeMetaParameter(urlCopy);
 		}
 
-		PageParameters decoded = encoder.decodePageParameters(request.requestWithUrl(urlCopy));
+		PageParameters decoded = encoder.decodePageParameters(request.cloneWithUrl(urlCopy));
 		return decoded;
 	}
 
@@ -188,11 +188,6 @@ public abstract class AbstractMapper
 			mountPath = mountPath.substring(1);
 		}
 		Url url = Url.parse(mountPath);
-
-		if (url.getSegments().isEmpty())
-		{
-			throw new IllegalArgumentException("Mount path must have at least one segment.");
-		}
 
 		String[] res = new String[url.getSegments().size()];
 		for (int i = 0; i < res.length; ++i)

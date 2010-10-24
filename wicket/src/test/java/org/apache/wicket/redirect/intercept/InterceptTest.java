@@ -23,6 +23,7 @@ import org.apache.wicket.WicketTestCase;
 import org.apache.wicket.authorization.Action;
 import org.apache.wicket.authorization.IAuthorizationStrategy;
 import org.apache.wicket.mock.MockApplication;
+import org.apache.wicket.request.component.IRequestableComponent;
 import org.apache.wicket.util.tester.WicketTester;
 
 /**
@@ -55,7 +56,7 @@ public class InterceptTest extends WicketTestCase
 						return true;
 					}
 
-					public <T extends Component> boolean isInstantiationAuthorized(
+					public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
 						Class<T> componentClass)
 					{
 						if (block &&

@@ -25,6 +25,7 @@ import org.apache.wicket.authorization.IAuthorizationStrategy;
 import org.apache.wicket.examples.WicketExampleApplication;
 import org.apache.wicket.request.Request;
 import org.apache.wicket.request.Response;
+import org.apache.wicket.request.component.IRequestableComponent;
 
 
 /**
@@ -77,7 +78,8 @@ public final class SignIn2Application extends WicketExampleApplication
 				return true;
 			}
 
-			public <T extends Component> boolean isInstantiationAuthorized(Class<T> componentClass)
+			public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
+				Class<T> componentClass)
 			{
 				// Check if the new Page requires authentication (implements the marker interface)
 				if (AuthenticatedWebPage.class.isAssignableFrom(componentClass))

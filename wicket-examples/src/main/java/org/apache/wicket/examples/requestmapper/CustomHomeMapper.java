@@ -18,6 +18,7 @@ package org.apache.wicket.examples.requestmapper;
 
 import java.util.List;
 
+import org.apache.wicket.Application;
 import org.apache.wicket.Session;
 import org.apache.wicket.request.IRequestHandler;
 import org.apache.wicket.request.IRequestMapper;
@@ -26,11 +27,10 @@ import org.apache.wicket.request.Url;
 import org.apache.wicket.request.handler.PageProvider;
 import org.apache.wicket.request.handler.RenderPageRequestHandler;
 import org.apache.wicket.request.mapper.AbstractComponentMapper;
-import org.apache.wicket.request.mapper.HomePageMapper;
 
 /**
- * An {@link IRequestMapper} that overrides the behavior of {@link HomePageMapper} and appends the
- * string representation of the current session locale in the url
+ * An {@link IRequestMapper} that handles requests to the home page ('/') and appends the string
+ * representation of the current session locale in the URL
  * 
  * <p>
  * I.e. a request to http://example.com/app will end up in http://example.com/app/en_US
@@ -55,9 +55,20 @@ public class CustomHomeMapper extends AbstractComponentMapper
 	 */
 	public Url mapHandler(IRequestHandler requestHandler)
 	{
-		String locale = Session.get().getLocale().toString();
-		Url homeUrl = new Url();
-		homeUrl.getSegments().add(0, locale);
+		Url homeUrl = null;
+
+		if (requestHandler instanceof RenderPageRequestHandler)
+		{
+			RenderPageRequestHandler pageRequestHandler = (RenderPageRequestHandler)requestHandler;
+
+			if (pageRequestHandler.getPageClass().equals(Application.get().getHomePage()))
+			{
+				String locale = Session.get().getLocale().toString();
+				homeUrl = new Url();
+				homeUrl.getSegments().add(0, locale);
+			}
+		}
+
 		return homeUrl;
 	}
 

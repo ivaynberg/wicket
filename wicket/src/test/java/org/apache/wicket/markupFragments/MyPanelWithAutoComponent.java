@@ -14,26 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.wicket.markup.html;
+package org.apache.wicket.markupFragments;
 
-import org.apache.wicket.IRequestListener;
-import org.apache.wicket.RequestListenerInterface;
+import org.apache.wicket.markup.html.basic.Label;
+import org.apache.wicket.markup.html.panel.Panel;
 
 
 /**
- * Internal listener.
  * 
- * @author Johan Compagner
- * @author Jonathan Locke
  */
-public interface INewBrowserWindowListener extends IRequestListener
+public class MyPanelWithAutoComponent extends Panel
 {
-	/** Listener interface object */
-	public static final RequestListenerInterface INTERFACE = new RequestListenerInterface(
-		INewBrowserWindowListener.class);
+	private static final long serialVersionUID = 1L;
 
 	/**
-	 * Called when a new browser window is detected.
+	 * Construct.
+	 * 
+	 * @param id
 	 */
-	void onNewBrowserWindow();
+	public MyPanelWithAutoComponent(String id)
+	{
+		super(id);
+
+		add(new Label("label"));
+	}
 }

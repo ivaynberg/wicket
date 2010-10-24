@@ -21,6 +21,7 @@ import org.apache.wicket.authorization.Action;
 import org.apache.wicket.authorization.strategies.role.AbstractRoleAuthorizationStrategy;
 import org.apache.wicket.authorization.strategies.role.IRoleCheckingStrategy;
 import org.apache.wicket.authorization.strategies.role.Roles;
+import org.apache.wicket.request.component.IRequestableComponent;
 
 
 /**
@@ -46,7 +47,8 @@ public class AnnotationsRoleAuthorizationStrategy extends AbstractRoleAuthorizat
 	/**
 	 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isInstantiationAuthorized(java.lang.Class)
 	 */
-	public <T extends Component> boolean isInstantiationAuthorized(final Class<T> componentClass)
+	public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
+		final Class<T> componentClass)
 	{
 		// We are authorized unless we are found not to be
 		boolean authorized = true;

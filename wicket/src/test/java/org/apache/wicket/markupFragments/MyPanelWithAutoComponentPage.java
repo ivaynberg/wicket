@@ -14,14 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.wicket.util.listener;
+package org.apache.wicket.markupFragments;
+
+import org.apache.wicket.markup.html.WebPage;
 
 /**
- * Typesafe super-interface for listener subclasses which can be added to a ListenerSet or are
- * intended to be dealt with in other generic ways.
  * 
- * @author Jonathan Locke
  */
-public interface IListener
+public class MyPanelWithAutoComponentPage extends WebPage
 {
+	/**
+	 * Construct.
+	 */
+	public MyPanelWithAutoComponentPage()
+	{
+		add(new MyPanelWithAutoComponent("panel"));
+	}
 }

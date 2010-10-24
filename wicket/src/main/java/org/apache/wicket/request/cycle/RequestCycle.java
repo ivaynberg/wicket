@@ -16,9 +16,6 @@
  */
 package org.apache.wicket.request.cycle;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.wicket.MetaDataEntry;
 import org.apache.wicket.MetaDataKey;
 import org.apache.wicket.Page;
@@ -70,20 +67,10 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 
 	private boolean cleanupFeedbackMessagesOnDetach = true;
 
-	/**
-	 * Custom callback invoked on request cycle detach. Detach callbacks are invoked after all
-	 * {@link IRequestHandler}s are detached.
-	 * 
-	 * @author Matej Knopp
-	 */
-	public interface DetachCallback
+	private interface IExecutor<T>
 	{
-		/**
-		 * Invoked on request cycle detach.
-		 * 
-		 * @param requestCycle
-		 */
-		public void onDetach(RequestCycle requestCycle);
+
+		void execute(T object);
 	}
 
 	/**
@@ -114,7 +101,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 
 	private final IExceptionMapper exceptionMapper;
 
-	private final List<DetachCallback> detachCallbacks = new ArrayList<DetachCallback>();
+	private final RequestCycleListenerCollection listeners = new RequestCycleListenerCollection();
 
 	private UrlRenderer urlRenderer;
 
@@ -154,7 +141,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	protected UrlRenderer newUrlRenderer()
 	{
 		// All URLs will be rendered relative to current request (can be overriden afterwards)
-		return new UrlRenderer(getRequest().getUrl());
+		return new UrlRenderer(getRequest().getClientUrl());
 	}
 
 	/**
@@ -221,7 +208,8 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 			}
 
 			// Did not find any suitable handler, thus not executing the request
-			log.error("Unable to execute request. No suitable RequestHandler found. URL=" +
+			log.debug(
+				"No suitable handler found for URL {}, falling back to container to process this request",
 				request.getUrl());
 		}
 		catch (Exception e)
@@ -255,6 +243,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 		boolean result;
 		try
 		{
+			listeners.onBeginRequest(this);
 			onBeginRequest();
 			result = processRequest();
 		}
@@ -301,6 +290,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	 */
 	protected IRequestHandler handleException(final Exception e)
 	{
+		listeners.onException(this, e);
 		return exceptionMapper.map(e);
 	}
 
@@ -496,6 +486,7 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 		try
 		{
 			onEndRequest();
+			listeners.onEndRequest(this);
 		}
 		catch (RuntimeException e)
 		{
@@ -508,30 +499,9 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 		}
 		finally
 		{
-			for (DetachCallback c : detachCallbacks)
-			{
-				try
-				{
-					c.onDetach(this);
-				}
-				catch (Exception e)
-				{
-					log.error("Error detaching DetachCallback", e);
-				}
-			}
+			listeners.onDetach(this);
 			set(null);
 		}
-	}
-
-	/**
-	 * Registers a callback to be invoked on {@link RequestCycle} detach. The callback will be
-	 * invoked after all {@link IRequestHandler}s are detached.
-	 * 
-	 * @param detachCallback
-	 */
-	public void register(DetachCallback detachCallback)
-	{
-		detachCallbacks.add(detachCallback);
 	}
 
 	/**
@@ -573,11 +543,22 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 			RenderPageRequestHandler.RedirectPolicy.AUTO_REDIRECT));
 	}
 
+	/**
+	 * Gets whether or not feedback messages are to be cleaned up on detach.
+	 * 
+	 * @return true if they are
+	 */
 	public boolean isCleanupFeedbackMessagesOnDetach()
 	{
 		return cleanupFeedbackMessagesOnDetach;
 	}
 
+	/**
+	 * Sets whether or not feedback messages should be cleaned up on detach.
+	 * 
+	 * @param cleanupFeedbackMessagesOnDetach
+	 *            true if you want them to be cleaned up
+	 */
 	public void setCleanupFeedbackMessagesOnDetach(boolean cleanupFeedbackMessagesOnDetach)
 	{
 		this.cleanupFeedbackMessagesOnDetach = cleanupFeedbackMessagesOnDetach;
@@ -610,5 +591,9 @@ public class RequestCycle extends RequestHandlerStack implements IRequestCycle, 
 	{
 	}
 
+	public RequestCycleListenerCollection getListeners()
+	{
+		return listeners;
+	}
 
 }

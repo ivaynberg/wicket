@@ -26,7 +26,10 @@ import java.util.Map.Entry;
 
 import junit.framework.TestCase;
 
+import org.apache.wicket.util.lang.Generics;
 import org.apache.wicket.util.string.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Testcase used in the different wicket projects for testing for the correct ASL license headers.
@@ -36,6 +39,9 @@ import org.apache.wicket.util.string.Strings;
  */
 public abstract class ApacheLicenseHeaderTestCase extends TestCase
 {
+	/** Log. */
+	private static final Logger log = LoggerFactory.getLogger(ApacheLicenseHeaderTestCase.class);
+
 	private static final String LINE_ENDING = System.getProperty("line.separator");
 
 	static interface FileVisitor
@@ -48,15 +54,15 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 
 	private class SuffixAndIgnoreFileFilter implements FileFilter
 	{
-		private final String[] suffixes;
-		private final String[] ignoreFiles;
+		private final List<String> suffixes;
+		private final List<String> ignoreFiles;
 
-		private SuffixAndIgnoreFileFilter(String[] suffixes)
+		private SuffixAndIgnoreFileFilter(List<String> suffixes)
 		{
 			this(suffixes, null);
 		}
 
-		private SuffixAndIgnoreFileFilter(String[] suffixes, String[] ignoreFiles)
+		private SuffixAndIgnoreFileFilter(List<String> suffixes, List<String> ignoreFiles)
 		{
 			this.suffixes = suffixes;
 			this.ignoreFiles = ignoreFiles;
@@ -70,16 +76,24 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 			{
 				if (ignoreFile(pathname) == false)
 				{
-					for (int i = 0; i < suffixes.length; i++)
+					for (int i = 0; i < suffixes.size(); i++)
 					{
-						String suffix = suffixes[i];
+						String suffix = suffixes.get(i);
 
 						if (pathname.getName().endsWith("." + suffix))
 						{
 							accept = true;
 							break;
 						}
+						else
+						{
+							log.info("File ignored: " + pathname.toString());
+						}
 					}
+				}
+				else
+				{
+					log.info("File ignored: " + pathname.toString());
 				}
 			}
 
@@ -97,9 +111,9 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 					baseDirectory.getAbsolutePath() + System.getProperty("file.separator"), "")
 					.toString();
 
-				for (int i = 0; i < ignoreFiles.length; i++)
+				for (int i = 0; i < ignoreFiles.size(); i++)
 				{
-					String ignorePath = ignoreFiles[i];
+					String ignorePath = ignoreFiles.get(i);
 					// Will convert '/'s to '\\'s on Windows
 					ignorePath = Strings.replaceAll(ignorePath, "/",
 						System.getProperty("file.separator")).toString();
@@ -114,15 +128,19 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 							break;
 						}
 					}
-
 					// Absolute file
-					if (ignoreFile.isFile())
+					else if (ignoreFile.isFile())
 					{
 						if (relativePathname.equals(ignorePath))
 						{
 							ignore = true;
 							break;
 						}
+					}
+					else if (pathname.getName().equals(ignorePath))
+					{
+						ignore = true;
+						break;
 					}
 				}
 			}
@@ -172,13 +190,14 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 
 	private File baseDirectory = new File("").getAbsoluteFile();
 
-	protected String[] javaIgnore;
-	protected String[] htmlIgnore;
-	protected String[] propertiesIgnore;
-	protected String[] xmlIgnore;
-	protected String[] cssIgnore;
-	protected String[] velocityIgnore;
-	protected String[] javaScriptIgnore;
+	protected List<String> javaIgnore = Generics.newArrayList();
+	protected List<String> htmlIgnore = Generics.newArrayList();
+	protected List<String> xmlPrologIgnore = Generics.newArrayList();
+	protected List<String> propertiesIgnore = Generics.newArrayList();
+	protected List<String> xmlIgnore = Generics.newArrayList();
+	protected List<String> cssIgnore = Generics.newArrayList();
+	protected List<String> velocityIgnore = Generics.newArrayList();
+	protected List<String> javaScriptIgnore = Generics.newArrayList();
 	protected boolean addHeaders = false;
 
 	/**
@@ -187,6 +206,35 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 	public ApacheLicenseHeaderTestCase()
 	{
 		super("Test of the legal aspects of the Wicket source code is correct.");
+
+		// -------------------------------
+		// Configure defaults
+		// -------------------------------
+
+		// addHeaders = true;
+		xmlIgnore.add(".settings");
+		xmlIgnore.add("EclipseCodeFormat.xml");
+
+		/*
+		 * License header in test files lower the visibility of the test.
+		 */
+		htmlIgnore.add("src/test/java");
+
+		/*
+		 * Low level configuration files for logging. No license needed.
+		 */
+		propertiesIgnore.add("src/test/java");
+
+		/*
+		 * .html in test is very test specific and a license header would confuse and make it
+		 * unclear what the test is about.
+		 */
+		xmlPrologIgnore.add("src/test/java");
+
+		/*
+		 * Ignore package.html
+		 */
+		xmlPrologIgnore.add("package.html");
 	}
 
 	/**
@@ -215,15 +263,15 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 				new JavaScriptLicenseHeaderHandler(javaScriptIgnore),
 				new XmlLicenseHeaderHandler(xmlIgnore),
 				new PropertiesLicenseHeaderHandler(propertiesIgnore),
-				new CssLicenseHeaderHandler(cssIgnore), new HtmlLicenseHeaderHandler(htmlIgnore),
-				new VelocityLicenseHeaderHandler(velocityIgnore) };
+				new HtmlLicenseHeaderHandler(htmlIgnore),
+				new VelocityLicenseHeaderHandler(velocityIgnore),
+				new XmlPrologHeaderHandler(xmlPrologIgnore),
+				new CssLicenseHeaderHandler(cssIgnore), };
 
 		final Map<ILicenseHeaderHandler, List<File>> badFiles = new HashMap<ILicenseHeaderHandler, List<File>>();
 
-		for (int i = 0; i < licenseHeaderHandlers.length; i++)
+		for (final ILicenseHeaderHandler licenseHeaderHandler : licenseHeaderHandlers)
 		{
-			final ILicenseHeaderHandler licenseHeaderHandler = licenseHeaderHandlers[i];
-
 			visitFiles(licenseHeaderHandler.getSuffixes(), licenseHeaderHandler.getIgnoreFiles(),
 				new FileVisitor()
 				{
@@ -294,12 +342,12 @@ public abstract class ApacheLicenseHeaderTestCase extends TestCase
 		}
 	}
 
-	private void visitFiles(String[] suffixes, String[] ignoreFiles, FileVisitor fileVisitor)
+	private void visitFiles(List<String> suffixes, List<String> ignoreFiles, FileVisitor fileVisitor)
 	{
 		visitDirectory(suffixes, ignoreFiles, baseDirectory, fileVisitor);
 	}
 
-	private void visitDirectory(String[] suffixes, String[] ignoreFiles, File directory,
+	private void visitDirectory(List<String> suffixes, List<String> ignoreFiles, File directory,
 		FileVisitor fileVisitor)
 	{
 		File[] files = directory.listFiles(new SuffixAndIgnoreFileFilter(suffixes, ignoreFiles));

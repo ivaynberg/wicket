@@ -16,6 +16,7 @@
  */
 package org.apache.wicket.util.license;
 
+import java.util.Arrays;
 
 /**
  * Test that the license headers are in place in this project. The tests are run from
@@ -31,47 +32,47 @@ public class ApacheLicenceHeaderTest extends ApacheLicenseHeaderTestCase
 	 */
 	public ApacheLicenceHeaderTest()
 	{
-
 		// addHeaders = true;
 
-		htmlIgnore = new String[] {
 		/*
 		 * This is an example project. Therefore we'd rather not have license headers in html files,
 		 * because it removes the focus away from what the example is about.
 		 */
-		"src" };
+		htmlIgnore = Arrays.asList("src");
 
 		/* same, same */
-		velocityIgnore = new String[] { "src" };
+		velocityIgnore = Arrays.asList("src");
 
-		javaScriptIgnore = new String[] {
 		/*
 		 * Prototype, released under MIT. See NOTICE
 		 */
-		"src/main/webapp/prototype.js",
+		javaScriptIgnore.add("src/main/webapp/prototype.js");
 		/*
 		 * Script.aculo.us, released under MIT. See NOTICE
 		 */
-		"src/main/webapp/effects.js", "src/main/webapp/scriptaculous.js",
+		javaScriptIgnore.add("src/main/webapp/effects.js");
+		javaScriptIgnore.add("src/main/webapp/scriptaculous.js");
 		/*
 		 * Behaviour, released under BSD. See NOTICE
 		 */
-		"src/main/java/org/apache/wicket/examples/preview/behaviour.js",
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/examples/preview/behaviour.js");
 		/*
 		 * DOJO is dual licensed. We use the BSD license. See NOTICE.
 		 */
-		"src/main/java/org/apache/wicket/examples/preview/dojo.js" };
+		javaScriptIgnore.add("src/main/java/org/apache/wicket/examples/preview/dojo.js");
 
-		xmlIgnore = new String[] {
 		/*
 		 * Part of an example
 		 */
-		"src/main/java/org/apache/wicket/examples/compref/XmlPage.xml", ".settings" };
+		xmlIgnore.add("src/main/java/org/apache/wicket/examples/compref/XmlPage.xml");
+		xmlIgnore.add(".settings");
 
-		propertiesIgnore = new String[] {
 		/*
 		 * Configuration files with no "intelligent" content
 		 */
-		"src/main/java/commons-logging.properties", "src/main/java/log4j.properties" };
+		propertiesIgnore.add("src/main/java/commons-logging.properties");
+		propertiesIgnore.add("src/main/java/log4j.properties");
+
+		xmlPrologIgnore = Arrays.asList("src");
 	}
 }

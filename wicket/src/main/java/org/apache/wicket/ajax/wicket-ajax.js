@@ -1069,10 +1069,14 @@ Wicket.Ajax.Call.prototype = {
 	// Submits a form using ajax.
 	// This method serializes a form and sends it as POST body.
 	submitForm: function(form, submitButton) {
-		if (form.onsubmit) {	
-			if (!form.onsubmit()) return;
+		var submittingAttribute = 'data-wicket-submitting';
+		if (form.onsubmit && !form.getAttribute(submittingAttribute)) {
+			form.setAttribute(submittingAttribute, submittingAttribute);
+			var retValue = form.onsubmit();
+			form.removeAttribute(submittingAttribute);
+			if (!retValue) return;
 		}
-	    
+		
 	    if (this.handleMultipart(form, submitButton)) {
 	    	return true;
 	    }
@@ -1147,7 +1151,7 @@ Wicket.Ajax.Call.prototype = {
 		
 		// reconfigure the form
 		form.target=iframe.name;
-		form.action=this.request.url + "&wicket:ajax=true";
+		form.action=this.request.url + "&wicket-ajax=true&wicket-ajax-baseurl=" + Wicket.Form.encode(Wicket.Ajax.baseUrl);
 		form.method="post";
 		form.enctype="multipart/form-data";
 		form.encoding="multipart/form-data";

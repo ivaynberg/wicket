@@ -19,7 +19,6 @@ package org.apache.wicket.markup.html.tree;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -30,7 +29,6 @@ import java.util.Set;
 import javax.swing.event.TreeModelEvent;
 import javax.swing.event.TreeModelListener;
 import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreeNode;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.MarkupContainer;
@@ -58,7 +56,7 @@ import org.apache.wicket.util.visit.IVisitor;
  * This class encapsulates the logic for displaying and (partial) updating the tree. Actual
  * presentation is out of scope of this class. User should derive they own tree (if needed) from
  * {@link BaseTree} (recommended).
- *
+ * 
  * @author Matej Knopp
  */
 public abstract class AbstractTree extends Panel
@@ -81,7 +79,7 @@ public abstract class AbstractTree extends Panel
 	{
 		/**
 		 * Visits the tree item.
-		 *
+		 * 
 		 * @param item
 		 *            the item to visit
 		 */
@@ -116,7 +114,7 @@ public abstract class AbstractTree extends Panel
 
 		/**
 		 * Construct.
-		 *
+		 * 
 		 * @param id
 		 *            The component id
 		 * @param node
@@ -177,7 +175,7 @@ public abstract class AbstractTree extends Panel
 
 		/**
 		 * Sets the children.
-		 *
+		 * 
 		 * @param children
 		 *            The children
 		 */
@@ -188,12 +186,22 @@ public abstract class AbstractTree extends Panel
 
 		/**
 		 * Whether to render children.
-		 *
+		 * 
 		 * @return whether to render children
 		 */
 		protected final boolean isRenderChildren()
 		{
 			return getFlag(FLAG_RENDER_CHILDREN);
+		}
+
+		/**
+		 * Whether the TreeItem has any child TreeItems
+		 * 
+		 * @return true if there are one or more child TreeItems; false otherwise
+		 */
+		public boolean hasChildTreeItems()
+		{
+			return children != null && !children.isEmpty();
 		}
 
 		/**
@@ -241,7 +249,7 @@ public abstract class AbstractTree extends Panel
 		}
 
 		/**
-		 *
+		 * 
 		 * @return model object
 		 */
 		public Object getModelObject()
@@ -366,7 +374,7 @@ public abstract class AbstractTree extends Panel
 
 		/**
 		 * Construct.
-		 *
+		 * 
 		 * @param id
 		 *            The component id
 		 */
@@ -467,7 +475,7 @@ public abstract class AbstractTree extends Panel
 
 	/**
 	 * Tree constructor
-	 *
+	 * 
 	 * @param id
 	 *            The component id
 	 */
@@ -479,7 +487,7 @@ public abstract class AbstractTree extends Panel
 
 	/**
 	 * Tree constructor
-	 *
+	 * 
 	 * @param id
 	 *            The component id
 	 * @param model
@@ -504,7 +512,7 @@ public abstract class AbstractTree extends Panel
 	}
 
 	/**
-	 *
+	 * 
 	 * @return model
 	 */
 	@SuppressWarnings("unchecked")
@@ -522,7 +530,7 @@ public abstract class AbstractTree extends Panel
 	}
 
 	/**
-	 *
+	 * 
 	 * @param model
 	 * @return this
 	 */
@@ -533,7 +541,7 @@ public abstract class AbstractTree extends Panel
 	}
 
 	/**
-	 *
+	 * 
 	 * @param model
 	 * @return this
 	 */
@@ -545,7 +553,7 @@ public abstract class AbstractTree extends Panel
 
 	/**
 	 * Returns the TreeState of this tree.
-	 *
+	 * 
 	 * @return Tree state instance
 	 */
 	public ITreeState getTreeState()
@@ -704,7 +712,7 @@ public abstract class AbstractTree extends Panel
 
 	/**
 	 * Determines whether the TreeNode needs to be rebuilt if it is selected or deselected
-	 *
+	 * 
 	 * @return true if the node should be rebuilt after (de)selection, false otherwise
 	 */
 	protected boolean isForceRebuildOnSelectionChange()
@@ -714,7 +722,7 @@ public abstract class AbstractTree extends Panel
 
 	/**
 	 * Sets whether the root of the tree should be visible.
-	 *
+	 * 
 	 * @param rootLess
 	 *            whether the root should be visible
 	 */
@@ -772,10 +780,10 @@ public abstract class AbstractTree extends Panel
 	/**
 	 * Marks the last but one visible child node of the given item as dirty, if give child is the
 	 * last item of parent.
-	 *
+	 * 
 	 * We need this to refresh the previous visible item in case the inserted / deleted item was
 	 * last. The reason is that the line shape of previous item changes from L to |- .
-	 *
+	 * 
 	 * @param parent
 	 * @param child
 	 */
@@ -808,23 +816,23 @@ public abstract class AbstractTree extends Panel
 		}
 
 		// get the parent node of inserted nodes
-		TreeNode parentNode = (TreeNode)e.getTreePath().getLastPathComponent();
+		Object parentNode = e.getTreePath().getLastPathComponent();
+		TreeItem parentItem = nodeToItemMap.get(parentNode);
 
-		if (isNodeVisible(parentNode))
+
+		if (parentItem != null && isNodeVisible(parentNode))
 		{
+			List<?> eventChildren = Arrays.asList(e.getChildren());
+
 			// parentNode was a leaf before this insertion event only if every one of
 			// its current children is in the event's list of children
 			boolean wasLeaf = true;
-			List<?> eventChildren = Arrays.asList(e.getChildren());
-			Enumeration<?> treeChildren = parentNode.children();
-			while (wasLeaf && treeChildren.hasMoreElements())
+			int nodeChildCount = getChildCount(parentNode);
+			for (int i = 0; wasLeaf && i < nodeChildCount; i++) 
 			{
-				if (!eventChildren.contains(treeChildren.nextElement()))
-				{
-					wasLeaf = false;
-				}
+				wasLeaf = eventChildren.contains(getChildAt(parentNode, i));
 			}
-
+			
 			if (wasLeaf)
 			{
 				// parentNode now has children for the first time, so we need to invalidate
@@ -837,37 +845,29 @@ public abstract class AbstractTree extends Panel
 			{
 				if (isNodeExpanded(parentNode))
 				{
-					TreeItem parentItem = nodeToItemMap.get(parentNode);
-					if (parentItem != null)
+					List<TreeItem> itemChildren = parentItem.getChildren();
+					int childLevel = parentItem.getLevel() + 1;
+					final int[] childIndices = e.getChildIndices();
+					for (int i = 0; i < eventChildren.size(); ++i)
 					{
-						if (parentItem.getChildren() == null || parentItem.getChildren().isEmpty())
+						TreeItem item = newTreeItem(parentItem, eventChildren.get(i), childLevel);
+						itemContainer.add(item);
+
+						if (itemChildren != null)
 						{
-							invalidateNode(parentNode, true);
+							itemChildren.add(childIndices[i], item);
+							markTheLastButOneChildDirty(parentItem, item);
 						}
 
-						for (int i = 0; i < e.getChildren().length; ++i)
+						if (!dirtyItems.contains(item))
 						{
-							Object node = e.getChildren()[i];
-							int index = e.getChildIndices()[i];
-							TreeItem item = newTreeItem(parentItem, node, parentItem.getLevel() + 1);
-							itemContainer.add(item);
+							dirtyItems.add(item);
+						}
 
-							if (parentItem.getChildren() != null)
-							{
-								parentItem.getChildren().add(index, item);
-								markTheLastButOneChildDirty(parentItem, item);
-							}
-
-							if (!dirtyItems.contains(item))
-							{
-								dirtyItems.add(item);
-							}
-
-							if (!dirtyItemsCreateDOM.contains(item) &&
-								!item.hasParentWithChildrenMarkedToRecreation())
-							{
-								dirtyItemsCreateDOM.add(item);
-							}
+						if (!dirtyItemsCreateDOM.contains(item) &&
+							!item.hasParentWithChildrenMarkedToRecreation())
+						{
+							dirtyItemsCreateDOM.add(item);
 						}
 					}
 				}
@@ -878,53 +878,50 @@ public abstract class AbstractTree extends Panel
 	/**
 	 * @see javax.swing.event.TreeModelListener#treeNodesRemoved(javax.swing.event.TreeModelEvent)
 	 */
-	public final void treeNodesRemoved(TreeModelEvent e)
+	public final void treeNodesRemoved(TreeModelEvent removalEvent)
 	{
 		if (dirtyAll)
 		{
 			return;
 		}
 
-		// get the parent node of inserted nodes
-		Object parent = e.getTreePath().getLastPathComponent();
-		TreeItem parentItem = nodeToItemMap.get(parent);
+		// get the parent node of deleted nodes
+		Object parentNode = removalEvent.getTreePath().getLastPathComponent();
+		TreeItem parentItem = nodeToItemMap.get(parentNode);
 
-		if (parentItem != null && isNodeVisible(parent) && isNodeExpanded(parent))
+		if (parentItem != null && isNodeVisible(parentNode))
 		{
-			boolean nonEmpty = parentItem.getChildren() != null &&
-				!parentItem.getChildren().isEmpty();
-			for (int i = 0; i < e.getChildren().length; ++i)
+			if (isNodeExpanded(parentNode))
 			{
-				Object node = e.getChildren()[i];
-
-				TreeItem item = nodeToItemMap.get(node);
-				if (item != null)
+				// deleted nodes were visible; we need to delete their TreeItems
+				for (Object deletedNode : removalEvent.getChildren())
 				{
-					markTheLastButOneChildDirty(parentItem, item);
-
-					// go though item children and remove every one of them
-					visitItemChildren(item, new IItemCallback()
+					TreeItem itemToDelete = nodeToItemMap.get(deletedNode);
+					if (itemToDelete != null)
 					{
-						public void visitItem(TreeItem item)
+						markTheLastButOneChildDirty(parentItem, itemToDelete);
+
+						// remove all the deleted item's children
+						visitItemChildren(itemToDelete, new IItemCallback()
 						{
-							removeItem(item);
+							public void visitItem(TreeItem item)
+							{
+								removeItem(item);
+								getTreeState().selectNode(item.getModelObject(), false);
+							}
+						});
 
-							// deselect the node
-							getTreeState().selectNode(item.getModelObject(), false);
-						}
-					});
-
-					parentItem.getChildren().remove(item);
-
-					removeItem(item);
-
-					getTreeState().selectNode(item.getModelObject(), false);
-
+						parentItem.getChildren().remove(itemToDelete);
+						removeItem(itemToDelete);
+						getTreeState().selectNode(itemToDelete.getModelObject(), false);
+					}
 				}
 			}
-			if (nonEmpty && parentItem.getChildren().isEmpty())
+
+			if (!parentItem.hasChildTreeItems())
 			{
-				invalidateNode(parent, true);
+				// rebuild parent's icon to show it no longer has children
+				invalidateNode(parentNode, true);
 			}
 		}
 	}

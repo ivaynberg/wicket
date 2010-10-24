@@ -23,13 +23,14 @@ import org.apache.wicket.authorization.Action;
 import org.apache.wicket.authorization.strategies.role.AbstractRoleAuthorizationStrategy;
 import org.apache.wicket.authorization.strategies.role.IRoleCheckingStrategy;
 import org.apache.wicket.authorization.strategies.role.Roles;
+import org.apache.wicket.request.component.IRequestableComponent;
 
 
 /**
  * Strategy that uses the Wicket metadata facility to check authorization. The static
- * <code>authorize</code> methods are for authorizing component actions and component
- * instantiation by role. This class is the main entry point for users wanting to use the
- * roles-based authorization of the wicket-auth-roles package based on wicket metadata.
+ * <code>authorize</code> methods are for authorizing component actions and component instantiation
+ * by role. This class is the main entry point for users wanting to use the roles-based
+ * authorization of the wicket-auth-roles package based on wicket metadata.
  * 
  * For instance, use like:
  * 
@@ -277,7 +278,8 @@ public class MetaDataRoleAuthorizationStrategy extends AbstractRoleAuthorization
 	 * 
 	 * @see org.apache.wicket.authorization.IAuthorizationStrategy#isInstantiationAuthorized(java.lang.Class)
 	 */
-	public <T extends Component> boolean isInstantiationAuthorized(final Class<T> componentClass)
+	public <T extends IRequestableComponent> boolean isInstantiationAuthorized(
+		final Class<T> componentClass)
 	{
 		if (componentClass == null)
 		{
@@ -309,7 +311,7 @@ public class MetaDataRoleAuthorizationStrategy extends AbstractRoleAuthorization
 	 * @return the roles that are authorized for creation of the componentClass, or null if no
 	 *         specific authorization was configured
 	 */
-	private static <T extends Component> Roles rolesAuthorizedToInstantiate(
+	private static <T extends IRequestableComponent> Roles rolesAuthorizedToInstantiate(
 		final Class<T> componentClass)
 	{
 		final InstantiationPermissions permissions = Application.get().getMetaData(
