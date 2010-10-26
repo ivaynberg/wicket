@@ -61,7 +61,7 @@ public class PageInstanceMapper extends AbstractComponentMapper
 		Url url = request.getUrl();
 		if (urlStartsWith(url, getContext().getNamespace(), getContext().getPageIdentifier()))
 		{
-			PageComponentInfo info = getPageComponentInfo(url);
+			PageComponentInfo info = getPageComponentInfo(request);
 			if (info != null && info.getPageInfo().getPageId() != null)
 			{
 				Integer renderCount = info.getComponentInfo() != null ? info.getComponentInfo()

@@ -19,6 +19,9 @@ package org.apache.wicket.ajax;
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
 import org.apache.wicket.Page;
+import org.apache.wicket.ajax.rsh.RealSimpleHistoryInitReference;
+import org.apache.wicket.ajax.rsh.RealSimpleHistoryJson2007Reference;
+import org.apache.wicket.ajax.rsh.RealSimpleHistoryReference;
 import org.apache.wicket.behavior.AbstractAjaxBehavior;
 import org.apache.wicket.markup.html.IHeaderResponse;
 import org.apache.wicket.markup.html.WicketEventReference;
@@ -73,6 +76,9 @@ public abstract class AbstractDefaultAjaxBehavior extends AbstractAjaxBehavior
 
 		response.renderJavascriptReference(WicketEventReference.INSTANCE);
 		response.renderJavascriptReference(WicketAjaxReference.INSTANCE);
+		response.renderJavascriptReference(RealSimpleHistoryJson2007Reference.INSTANCE);
+		response.renderJavascriptReference(RealSimpleHistoryReference.INSTANCE);
+		response.renderJavascriptReference(RealSimpleHistoryInitReference.INSTANCE);
 
 		if (debugSettings.isAjaxDebugModeEnabled())
 		{

@@ -29,9 +29,9 @@ public class PageComponentInfo
 {
 	private static final char SEPARATOR = '-';
 
-	private final PageInfo pageInfo;
+	private PageInfo pageInfo;
 
-	private final ComponentInfo componentInfo;
+	private ComponentInfo componentInfo;
 
 	/**
 	 * Construct.
@@ -44,6 +44,16 @@ public class PageComponentInfo
 		Args.notNull(pageInfo, "pageInfo");
 
 		this.pageInfo = pageInfo;
+		this.componentInfo = componentInfo;
+	}
+
+	public void setPageInfo(PageInfo pageInfo)
+	{
+		this.pageInfo = pageInfo;
+	}
+
+	public void setComponentInfo(ComponentInfo componentInfo)
+	{
 		this.componentInfo = componentInfo;
 	}
 

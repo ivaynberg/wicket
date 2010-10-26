@@ -111,7 +111,7 @@ public class MountedMapper extends AbstractBookmarkableMapper
 			urlStartsWith(url, mountSegments))
 		{
 			// try to extract page and component information from URL
-			PageComponentInfo info = getPageComponentInfo(url);
+			PageComponentInfo info = getPageComponentInfo(request);
 
 			Class<? extends IRequestablePage> pageClass = this.pageClass.get();
 

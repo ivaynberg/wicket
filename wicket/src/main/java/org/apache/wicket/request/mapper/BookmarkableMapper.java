@@ -96,7 +96,7 @@ public class BookmarkableMapper extends AbstractBookmarkableMapper
 				getContext().getBookmarkableIdentifier()))
 		{
 			// try to extract page and component information from URL
-			PageComponentInfo info = getPageComponentInfo(url);
+			PageComponentInfo info = getPageComponentInfo(request);
 
 			// load the page class
 			String className = url.getSegments().get(2);

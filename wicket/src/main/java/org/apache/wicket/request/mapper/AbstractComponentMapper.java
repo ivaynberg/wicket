@@ -19,10 +19,13 @@ package org.apache.wicket.request.mapper;
 import org.apache.wicket.Application;
 import org.apache.wicket.RequestListenerInterface;
 import org.apache.wicket.request.IRequestMapper;
+import org.apache.wicket.request.Request;
 import org.apache.wicket.request.Url;
 import org.apache.wicket.request.Url.QueryParameter;
 import org.apache.wicket.request.component.IRequestablePage;
+import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.mapper.info.PageComponentInfo;
+import org.apache.wicket.request.mapper.info.PageInfo;
 import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.util.lang.WicketObjects;
 import org.apache.wicket.util.string.Strings;
@@ -76,12 +79,13 @@ public abstract class AbstractComponentMapper extends AbstractMapper implements 
 	 * Extracts the {@link PageComponentInfo} from the URL. The {@link PageComponentInfo} is encoded
 	 * as the very first query parameter and the parameter consists of name only (no value).
 	 * 
-	 * @param url
+	 * @param request
 	 * 
 	 * @return PageComponentInfo instance if one was encoded in URL, <code>null</code> otherwise.
 	 */
-	protected PageComponentInfo getPageComponentInfo(Url url)
+	protected PageComponentInfo getPageComponentInfo(Request request)
 	{
+		final Url url = request.getUrl();
 		if (url == null)
 		{
 			throw new IllegalStateException("Argument 'url' may not be null.");
@@ -91,7 +95,37 @@ public abstract class AbstractComponentMapper extends AbstractMapper implements 
 			QueryParameter param = url.getQueryParameters().get(0);
 			if (Strings.isEmpty(param.getValue()))
 			{
-				return PageComponentInfo.parse(param.getName());
+				PageComponentInfo pcinfo = PageComponentInfo.parse(param.getName());
+				if (pcinfo != null)
+				{
+					/*
+					 * TODO AJAX-HISTORY: perhaps there should be request.getPageIdOverride() -
+					 * although such a method would be awkward in the general wicket-request module.
+					 * On the other hand it is awkward to have this code inlined here.
+					 */
+					if (request instanceof WebRequest)
+					{
+						WebRequest webRequest = (WebRequest)request;
+						String pageid = webRequest.getHeader("Wicket-Page-Id");
+
+						/*
+						 * TODO AJAX-HISTORY: remove once we have a special listener to handle
+						 * history navigation
+						 */
+						if (Strings.isEmpty(pageid))
+						{
+							pageid = request.getQueryParameters()
+								.getParameterValue("wicket-page-id")
+								.toString(null);
+						}
+
+						if (!Strings.isEmpty(pageid))
+						{
+							pcinfo.setPageInfo(new PageInfo(Integer.parseInt(pageid)));
+						}
+					}
+				}
+				return pcinfo;
 			}
 		}
 		return null;

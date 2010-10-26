@@ -1,3 +1,38 @@
+BRANCH NOTES
+=================
+Implements Ajax history
+
+Notes:
+- `target.setHistoryToken("users/edit/15");` to set the hash
+- problem: since ajax pages are now versioned it is easy to evict the version of the page that did the full load - in which case non-ajax links wont work
+
+What is done:
+- page versions are no longer frozen during ajax requests - allowing normal page versioning to take place
+- page version is sent as part of ajax response
+- ajax response sends page version in Wicket-Page-Id header
+- wicket allows Wicket-Page-Id header to override page id found in the url
+- default ajax behaviors integrate RSH
+
+Todo:
+- check if RSH is apache2 compatible, if not find something else
+- isolate javascript history SPI and provide default RSH adapter
+- need to tweak rsh to make location of blank.html configurable at runtime
+- ajax request target needs a #setToken(String token) which will represent the hash, use pageid by default
+- for now back button ishandled by a simple full page redirect, this should be hanlded via ajax
+  1. client side needs to remember which markup ids were updated as part of history
+  2. on back button we invoke a special listener on the page instance pointed to by the *previous page id*
+  3. previously updated components ids are passed to the listener
+  4. listener constructs an ajax request target and adds the passed in markup ids
+  5. hopefully this restores the page state back to what it was
+  6. add ability to add javascript to request target that executes on back button
+  7. add ability to add javascript to request target that executes after previous page state has been restored
+     - this should allow user to augment what wicket does by default to restore state
+  8. ability to override how wicket restores state by default by doing something to the ajax request target?
+- merge rsh, json, init into a single js file and minify
+- handle loading with an initial token like user/edit/16
+  - supporting this means that tokens need to be namespaced with some path, just like wicket urls are currently namespaced with wicket/ so we can tell history tokens from regular page anchors
+    - when user sets token user/edit/15 it should result in #wicket/user/edit/15
+	  - wicket bit should use the same context value url mappers use
 Apache Wicket 1.4
 =================
 

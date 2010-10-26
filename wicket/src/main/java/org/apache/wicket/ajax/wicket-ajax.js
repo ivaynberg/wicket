@@ -687,7 +687,28 @@ Wicket.channelManager = new Wicket.ChannelManager();
  * The Ajax class handles low level details of creating and pooling XmlHttpRequest objects,
  * as well as registering and execution of pre-call, post-call and failure handlers.
  */
- Wicket.Ajax = { 
+ Wicket.Ajax = {
+ 	// page id that should be targetting for ajax requests
+ 	// acts as an override to whatever value is encoded into the callback url
+ 	// transported via Wicket-Page-Id header
+ 	pageId:null,
+ 	// called when ajax response is being processed, takes care of maintaining history
+  	handleHistoryToken:function(pageId,token) {
+  		window.location.hash=pageId;
+  	},
+  	historyGo:function(location) {
+  		if (location!=Wicket.Ajax.pageId) {
+  			var loc=window.location.href;
+  			var hash=loc.indexOf("#");
+  			if (hash>0) {
+  				loc=loc.substring(0,hash);
+  			}
+  			if (loc.indexOf("?")<0) loc+="?"; else loc+="&";
+  			loc+="wicket-page-id=";
+  			loc+=location;
+  			window.location.replace(loc);
+  		}
+  	},
  	// Creates a new instance of a XmlHttpRequest
 	createTransport: function() {
 	    var transport = null;
@@ -846,6 +867,10 @@ Wicket.Ajax.Request.prototype = {
 				// set a special flag to allow server distinguish between ajax and non-ajax requests
 				t.setRequestHeader("Wicket-Ajax", "true");
 				t.setRequestHeader("Wicket-Ajax-BaseURL", Wicket.Ajax.baseUrl);
+				if (Wicket.Ajax.pageId!=null)
+				{
+					t.setRequestHeader("Wicket-Page-Id", Wicket.Ajax.pageId);
+				}
 				if (typeof(Wicket.Focus.lastFocusId) != "undefined" && Wicket.Focus.lastFocusId != "" && Wicket.Focus.lastFocusId != null)
 				    t.setRequestHeader("Wicket-FocusedElementId", Wicket.Focus.lastFocusId);				
 				t.setRequestHeader("Accept", "text/xml");
@@ -1263,8 +1288,11 @@ Wicket.Ajax.Call.prototype = {
 			}
 			
 			// go through the ajax response and for every action (component, js evaluation, header contribution)
-			// ad the proper closure to steps
+			// add the proper closure to steps
 			var stepIndexOfLastReplacedComponent = -1;
+			
+			var pageId=null;
+			var pageToken=null;
 		    for (var i = 0; i < root.childNodes.length; ++i) {
 		    	var node = root.childNodes[i];				
 
@@ -1280,9 +1308,19 @@ Wicket.Ajax.Call.prototype = {
 		           this.processHeaderContribution(steps, node);
 		        } else if (node.tagName == "redirect") {
 		           this.processRedirect(steps, node);
-		        }
-
+		        } else if (node.tagName == "page-id") {
+		        	pageId=node.firstChild.nodeValue;
+				} else if (node.tagName == "page-token") {
+		        	pageToken=node.firstChild.nodeValue;
+				}
 		    }
+
+		    if (pageId!=null) {
+		    	Wicket.Ajax.pageId=node.firstChild.nodeValue;
+		    	Wicket.Log.info("Set page id for ajax reqests to: "+Wicket.Ajax.pageId);
+		        Wicket.Ajax.handleHistoryToken(pageId, pageToken);
+			}		    
+		    
 			if (stepIndexOfLastReplacedComponent != -1) {
 				this.processFocusedComponentReplaceCheck(steps, stepIndexOfLastReplacedComponent);
 			}
