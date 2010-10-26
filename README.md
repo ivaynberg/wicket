@@ -3,10 +3,12 @@ BRANCH NOTES
 Implements Ajax history
 
 Notes:
+
 * `target.setHistoryToken("users/edit/15");` to set the hash
 * problem: since ajax pages are now versioned it is easy to evict the version of the page that did the full load - in which case non-ajax links wont work
 
 What is done:
+
 * page versions are no longer frozen during ajax requests - allowing normal page versioning to take place
 * page version is sent as part of ajax response
 * ajax response sends page version in Wicket-Page-Id header
@@ -14,6 +16,7 @@ What is done:
 * default ajax behaviors integrate RSH
 
 Todo:
+
 * check if RSH is apache2 compatible, if not find something else
 * isolate javascript history SPI and provide default RSH adapter
 * need to tweak rsh to make location of blank.html configurable at runtime
