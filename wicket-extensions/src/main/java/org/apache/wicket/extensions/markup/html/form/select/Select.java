@@ -17,6 +17,7 @@
 package org.apache.wicket.extensions.markup.html.form.select;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -29,9 +30,9 @@ import org.apache.wicket.util.string.Strings;
 
 
 /**
- * Component that represents a <code>&lt;select&gt;</code> box. Elements are provided by one or
- * more <code>SelectChoice</code> or <code>SelectOptions</code> components in the hierarchy
- * below the <code>Select</code> component.
+ * Component that represents a <code>&lt;select&gt;</code> box. Elements are provided by one or more
+ * <code>SelectChoice</code> or <code>SelectOptions</code> components in the hierarchy below the
+ * <code>Select</code> component.
  * 
  * Advantages to the standard choice components is that the user has a lot more control over the
  * markup between the &lt;select&gt; tag and its children &lt;option&gt; tags: allowing for such
@@ -138,7 +139,7 @@ public class Select extends FormComponent
 				{
 					throw new WicketRuntimeException(
 						"submitted http post value [" +
-							paths.toString() +
+							Arrays.toString(paths) +
 							"] for SelectOption component [" +
 							getPath() +
 							"] contains an illegal relative path element [" +
@@ -219,30 +220,30 @@ public class Select extends FormComponent
 						return true;
 					}
 				}
-                return false;
+				return false;
 			}
 		}
 
-        return compareModels(getDefaultModelObject(), option.getDefaultModelObject());
+		return compareModels(getDefaultModelObject(), option.getDefaultModelObject());
 	}
 
-    private boolean compareModels(Object selected, Object value)
-    {
-			if (selected != null && selected instanceof Collection)
+	private boolean compareModels(Object selected, Object value)
+	{
+		if (selected != null && selected instanceof Collection)
+		{
+			if (value instanceof Collection)
 			{
-				if (value instanceof Collection)
-				{
-					return ((Collection)selected).containsAll((Collection)value);
-				}
-				else
-				{
-					return ((Collection)selected).contains(value);
-				}
+				return ((Collection)selected).containsAll((Collection)value);
 			}
 			else
 			{
-				return Objects.equal(selected, value);
+				return ((Collection)selected).contains(value);
 			}
 		}
+		else
+		{
+			return Objects.equal(selected, value);
+		}
+	}
 
 }
