@@ -6,6 +6,7 @@ Notes:
 
 * `target.setHistoryToken("users/edit/15");` to set the hash
 * problem: since ajax pages are now versioned it is easy to evict the version of the page that did the full load - in which case non-ajax links wont work
+  * a possible solution is to have light and heavy page ids, with lighter ones expiring before the heavy ones. that way ajax page versions will expire before any full request ones.
 
 What is done:
 
