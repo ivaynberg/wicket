@@ -14,6 +14,10 @@ What is done:
 * ajax response sends page version in Wicket-Page-Id header
 * wicket allows Wicket-Page-Id header to override page id found in the url
 * default ajax behaviors integrate RSH
+* added IAjaxHistoryListener that is invoked on navigation using back/forward button
+* clientside keeps track of component ids that were repainted
+* clientside sends ids of repainted components to server side when back/forward buttons are used
+* serverside constructs an ajax response for history navigation by adding components that were repainted to go from A->B when going from B->A
 
 Todo:
 
@@ -22,11 +26,8 @@ Todo:
 * need to tweak rsh to make location of blank.html configurable at runtime
 * ajax request target needs a #setToken(String token) which will represent the hash, use pageid by default
 * for now back button ishandled by a simple full page redirect, this should be hanlded via ajax
-  1. client side needs to remember which markup ids were updated as part of history
-  2. on back button we invoke a special listener on the page instance pointed to by the *previous page id*
   3. previously updated components ids are passed to the listener
-  4. listener constructs an ajax request target and adds the passed in markup ids
-  5. hopefully this restores the page state back to what it was
+     * partial - if we have A->B->C and we went back to A only A->B component ids are sent, bug we also need to include B->C
   6. add ability to add javascript to request target that executes on back button
   7. add ability to add javascript to request target that executes after previous page state has been restored
      - this should allow user to augment what wicket does by default to restore state

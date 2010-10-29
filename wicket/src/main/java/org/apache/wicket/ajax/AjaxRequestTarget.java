@@ -640,6 +640,10 @@ public class AjaxRequestTarget implements IPageRequestHandler
 			response.write(getPage().getId());
 			response.write("</page-id>");
 
+			response.write("<history-url>");
+			response.write(page.urlFor(IAjaxHistoryListener.INTERFACE));
+			response.write("</history-url>");
+
 			response.write("</ajax-response>");
 		}
 		finally

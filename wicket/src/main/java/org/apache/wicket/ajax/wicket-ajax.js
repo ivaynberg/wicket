@@ -693,20 +693,44 @@ Wicket.channelManager = new Wicket.ChannelManager();
  	// transported via Wicket-Page-Id header
  	pageId:null,
  	// called when ajax response is being processed, takes care of maintaining history
-  	handleHistoryToken:function(pageId,token) {
-  		window.location.hash=pageId;
+  	recordHistoryEntry:function(entry) {
+  	   	Wicket.Ajax.pageId=entry.pageId;
+		Wicket.Log.info("Set page id for ajax reqests to: "+entry.pageId);
+  	
+  		if (!("token" in entry)) {
+  			entry.token=entry.pageId;
+  		}
+  		
+  		Wicket.Ajax.historyEntries.push(entry);
+  		window.location.hash=entry.token;
   	},
+  	historyEntries:new Array(),
   	historyGo:function(location) {
-  		if (location!=Wicket.Ajax.pageId) {
-  			var loc=window.location.href;
-  			var hash=loc.indexOf("#");
-  			if (hash>0) {
-  				loc=loc.substring(0,hash);
+  		var entry=null;
+  		for (var i=Wicket.Ajax.historyEntries.length-1;i>=0;i--) {
+  			var e=Wicket.Ajax.historyEntries[i];
+  			if (e.token==location) {
+  				if (i==Wicket.Ajax.historyEntries.length-1) {
+  					return;
+  				}
+  				entry=e; break;
   			}
-  			if (loc.indexOf("?")<0) loc+="?"; else loc+="&";
-  			loc+="wicket-page-id=";
-  			loc+=location;
-  			window.location.replace(loc);
+  		}
+  		
+  		if (entry==null) {
+  			Wicket.Log.error("Unrecognized Ajax history token: "+location);
+  			return;
+  		}
+  		
+  		if (entry.pageId!=Wicket.Ajax.pageId) {
+  			var loc=entry.url;
+  			for (var i=0;i<entry.components.length;i++) {
+  				if (loc.indexOf("?")<0) loc+="?"; else loc+="&";
+  				loc+="wcid="+entry.components[i];
+  			}
+  			var call=new Wicket.Ajax.Call(loc);
+  			call.pageId=entry.pageId;
+  			call.call();
   		}
   	},
  	// Creates a new instance of a XmlHttpRequest
@@ -796,6 +820,9 @@ Wicket.channelManager = new Wicket.ChannelManager();
 Wicket.Ajax.Request = Wicket.Class.create();
 
 Wicket.Ajax.Request.prototype = {
+	// value of Wicket-Page-Id header, defaults to Wicke.Ajax.Call.pageId
+	pageId:null,
+	
     // Creates a new request object.
 	initialize: function(url, loadedCallback, parseResponse, randomURL, failureHandler, channel, successHandler) {
 		this.url = url;
@@ -867,9 +894,16 @@ Wicket.Ajax.Request.prototype = {
 				// set a special flag to allow server distinguish between ajax and non-ajax requests
 				t.setRequestHeader("Wicket-Ajax", "true");
 				t.setRequestHeader("Wicket-Ajax-BaseURL", Wicket.Ajax.baseUrl);
-				if (Wicket.Ajax.pageId!=null)
+				
+				if (this.pageId == null) {
+					this.pageId = Wicket.Ajax.pageId;
+				}
+				
+				if (this.pageId != null)
 				{
-					t.setRequestHeader("Wicket-Page-Id", Wicket.Ajax.pageId);
+					var pid=this.pageId;
+					Wicket.Log.info("Setting Wicket-Page-Id header to: "+pid);
+					t.setRequestHeader("Wicket-Page-Id", pid);
 				}
 				if (typeof(Wicket.Focus.lastFocusId) != "undefined" && Wicket.Focus.lastFocusId != "" && Wicket.Focus.lastFocusId != null)
 				    t.setRequestHeader("Wicket-FocusedElementId", Wicket.Focus.lastFocusId);				
@@ -1052,6 +1086,9 @@ Wicket.Ajax.Request.prototype = {
 Wicket.Ajax.Call = Wicket.Class.create();
 
 Wicket.Ajax.Call.prototype = {
+	// value of Wicket-Page-Id header
+	pageId:null,
+	
 	// Initializes the Call
 	initialize: function(url, successHandler, failureHandler, channel) {
 		this.successHandler = successHandler != null ? successHandler : function() { };
@@ -1075,11 +1112,13 @@ Wicket.Ajax.Call.prototype = {
 	
 	// Fires a get request
 	call: function() {	
+		this.request.pageId=this.pageId;
 		return this.request.get();
 	},
 	
 	// Fires a post request
 	post: function(body) {
+		this.request.pageId=this.pageId;
 		return this.request.post(body);
 	},
 
@@ -1291,8 +1330,7 @@ Wicket.Ajax.Call.prototype = {
 			// add the proper closure to steps
 			var stepIndexOfLastReplacedComponent = -1;
 			
-			var pageId=null;
-			var pageToken=null;
+		    var historyEntry={components:new Array()};
 		    for (var i = 0; i < root.childNodes.length; ++i) {
 		    	var node = root.childNodes[i];				
 
@@ -1302,6 +1340,7 @@ Wicket.Ajax.Call.prototype = {
 					}
 					stepIndexOfLastReplacedComponent = steps.length;
 					this.processComponent(steps, node);
+					historyEntry.components.push(node.getAttribute("id"));
 		        } else if (node.tagName == "evaluate") {
 		           this.processEvaluation(steps, node);
 		        } else if (node.tagName == "header-contribution") {
@@ -1309,16 +1348,16 @@ Wicket.Ajax.Call.prototype = {
 		        } else if (node.tagName == "redirect") {
 		           this.processRedirect(steps, node);
 		        } else if (node.tagName == "page-id") {
-		        	pageId=node.firstChild.nodeValue;
+		        	historyEntry.pageId=node.firstChild.nodeValue;
 				} else if (node.tagName == "page-token") {
-		        	pageToken=node.firstChild.nodeValue;
+		        	historyEntry.token=node.firstChild.nodeValue;
+				} else if (node.tagName == "history-url") {
+					historyEntry.url=node.firstChild.nodeValue;
 				}
 		    }
 
-		    if (pageId!=null) {
-		    	Wicket.Ajax.pageId=node.firstChild.nodeValue;
-		    	Wicket.Log.info("Set page id for ajax reqests to: "+Wicket.Ajax.pageId);
-		        Wicket.Ajax.handleHistoryToken(pageId, pageToken);
+		    if ("pageId" in historyEntry) {
+		        Wicket.Ajax.recordHistoryEntry(historyEntry);
 			}		    
 		    
 			if (stepIndexOfLastReplacedComponent != -1) {
