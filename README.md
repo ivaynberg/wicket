@@ -28,6 +28,7 @@ Todo:
 * for now back button ishandled by a simple full page redirect, this should be hanlded via ajax
   3. previously updated components ids are passed to the listener
      * partial - if we have A->B->C and we went back to A only A->B component ids are sent, bug we also need to include B->C
+       * a possible stopgap solution may be to use a full page refresh if jumping more then one level forward or backward
   6. add ability to add javascript to request target that executes on back button
   7. add ability to add javascript to request target that executes after previous page state has been restored
      - this should allow user to augment what wicket does by default to restore state
