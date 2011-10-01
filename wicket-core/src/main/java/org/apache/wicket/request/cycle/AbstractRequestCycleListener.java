@@ -25,7 +25,7 @@ import org.apache.wicket.request.Url;
  */
 public abstract class AbstractRequestCycleListener implements IRequestCycleListener
 {
-	public void onBeginRequest(RequestCycle cycle)
+	public void onBeginRequest(RequestCycle cycle, IRequestHandler firstHandler)
 	{
 	}
 

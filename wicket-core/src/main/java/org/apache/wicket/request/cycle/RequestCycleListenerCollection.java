@@ -54,13 +54,13 @@ public class RequestCycleListenerCollection extends ListenerCollection<IRequestC
 	 * i.e. the listener that is the first element of this collection is the first listener to be
 	 * notified of {@code onBeginRequest}.
 	 */
-	public void onBeginRequest(final RequestCycle cycle)
+	public void onBeginRequest(final RequestCycle cycle, final IRequestHandler firstHandler)
 	{
 		notify(new INotifier<IRequestCycleListener>()
 		{
 			public void notify(IRequestCycleListener listener)
 			{
-				listener.onBeginRequest(cycle);
+				listener.onBeginRequest(cycle, firstHandler);
 			}
 		});
 	}

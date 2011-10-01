@@ -53,7 +53,7 @@ class MultiRequestCycleListenerCallOrderApplication extends WebApplication
 			this.name = name;
 		}
 
-		public void onBeginRequest(RequestCycle cycle)
+		public void onBeginRequest(RequestCycle cycle, IRequestHandler firstHandler)
 		{
 			callSequence.add(name + ".onBeginRequest");
 		}

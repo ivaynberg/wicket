@@ -16,8 +16,7 @@
  */
 package org.apache.wicket.request.cycle;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.ThreadContext;
@@ -297,7 +296,7 @@ public class RequestCycleListenerTest extends BaseRequestHandlerStackTest
 			ends++;
 		}
 
-		public void onBeginRequest(final RequestCycle cycle)
+		public void onBeginRequest(final RequestCycle cycle, IRequestHandler firstHandler)
 		{
 			assertNotNull(RequestCycle.get());
 			begins++;

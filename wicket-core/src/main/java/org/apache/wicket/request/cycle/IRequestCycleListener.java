@@ -102,8 +102,10 @@ public interface IRequestCycleListener
 	 * Called when the request cycle object is beginning its response
 	 * 
 	 * @param cycle
+	 * @param firstHandler
+	 *            first resolved handler
 	 */
-	void onBeginRequest(RequestCycle cycle);
+	void onBeginRequest(RequestCycle cycle, IRequestHandler firstHandler);
 
 	/**
 	 * Called when the request cycle object has finished its response

@@ -109,6 +109,8 @@ public class RequestCycle implements IRequestCycle, IEventSink
 
 	private Response activeResponse;
 
+	private boolean onBeginRequestCalled;
+
 	/**
 	 * Construct.
 	 * 
@@ -199,11 +201,14 @@ public class RequestCycle implements IRequestCycle, IEventSink
 		try
 		{
 			set(this);
-			listeners.onBeginRequest(this);
-			onBeginRequest();
+
 			IRequestHandler handler = resolveRequestHandler();
 			if (handler != null)
 			{
+				onBeginRequestCalled = true;
+				listeners.onBeginRequest(this, handler);
+				onBeginRequest();
+
 				listeners.onRequestHandlerResolved(this, handler);
 				requestHandlerExecutor.execute(handler);
 				listeners.onRequestHandlerExecuted(this, handler);
@@ -220,6 +225,13 @@ public class RequestCycle implements IRequestCycle, IEventSink
 			IRequestHandler handler = handleException(e);
 			if (handler != null)
 			{
+				if (!onBeginRequestCalled)
+				{
+					onBeginRequestCalled = true;
+					listeners.onBeginRequest(this, handler);
+					onBeginRequest();
+				}
+
 				listeners.onExceptionRequestHandlerResolved(this, handler, e);
 				executeExceptionRequestHandler(handler, getExceptionRetryCount());
 				listeners.onRequestHandlerExecuted(this, handler);
@@ -514,8 +526,11 @@ public class RequestCycle implements IRequestCycle, IEventSink
 
 		try
 		{
-			onEndRequest();
-			listeners.onEndRequest(this);
+			if (onBeginRequestCalled)
+			{
+				onEndRequest();
+				listeners.onEndRequest(this);
+			}
 		}
 		catch (RuntimeException e)
 		{

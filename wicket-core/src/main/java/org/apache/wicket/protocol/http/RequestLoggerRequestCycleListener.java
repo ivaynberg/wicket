@@ -38,7 +38,7 @@ public class RequestLoggerRequestCycleListener extends AbstractRequestCycleListe
 	private static final ThreadLocal<IRequestHandler> first = new ThreadLocal<IRequestHandler>();
 
 	@Override
-	public void onBeginRequest(RequestCycle cycle)
+	public void onBeginRequest(RequestCycle cycle, IRequestHandler firstHandler)
 	{
 		if (!isRequestLoggingEnabled())
 			return;
