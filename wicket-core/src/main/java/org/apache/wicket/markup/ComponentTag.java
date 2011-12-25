@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.behavior.Behavior;
@@ -70,6 +71,11 @@ public class ComponentTag extends MarkupElement
 	/** Render the tag as RawMarkup even if no Component can be found */
 	public final static int RENDER_RAW = 0x0020;
 
+	public static final AtomicLong uidSequence = new AtomicLong(1);
+
+	/** uniqe id of this tag */
+	private Long uid;
+
 	/** If close tag, than reference to the corresponding close tag */
 	private ComponentTag openTag;
 
@@ -113,6 +119,7 @@ public class ComponentTag extends MarkupElement
 		tag.setName(name);
 		tag.setType(type);
 		xmlTag = tag;
+		uid = uidSequence.incrementAndGet();
 	}
 
 	/**
@@ -125,6 +132,7 @@ public class ComponentTag extends MarkupElement
 	{
 		super();
 		xmlTag = tag;
+		uid = uidSequence.incrementAndGet();
 	}
 
 	/**
@@ -138,6 +146,21 @@ public class ComponentTag extends MarkupElement
 		this(tag.getXmlTag());
 		tag.copyPropertiesTo(this);
 	}
+
+	/**
+	 * Gets tag's uid
+	 * 
+	 * @return uid
+	 */
+	public long getUid()
+	{
+		if (uid == null)
+		{
+			throw new IllegalStateException("UID was not assigned to this component tag: " + this);
+		}
+		return uid;
+	}
+
 
 	/**
 	 * THIS METHOD IS NOT PART OF THE WICKET PUBLIC API. DO NOT USE IT!
@@ -437,6 +460,7 @@ public class ComponentTag extends MarkupElement
 	{
 		dest.id = id;
 		dest.flags = flags;
+		dest.uid = uid;
 		if (markupClassRef != null)
 		{
 			dest.setMarkupClass(markupClassRef.get());

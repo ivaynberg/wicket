@@ -16,6 +16,7 @@
  */
 package org.apache.wicket;
 
+import java.io.Serializable;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -156,6 +157,36 @@ public abstract class MarkupContainer extends Component implements Iterable<Comp
 		return this;
 	}
 
+	public static class ResolvedMeta implements Serializable
+	{
+		private String tagComponentId;
+		private int index;
+
+		public ResolvedMeta(MarkupStream stream)
+		{
+			tagComponentId = ((ComponentTag)stream.get()).getId();
+			index = stream.getCurrentIndex();
+		}
+
+		public boolean isFor(MarkupStream stream)
+		{
+			if (stream.getCurrentIndex() != index)
+			{
+				return false;
+			}
+			if (!tagComponentId.equals(((ComponentTag)stream.get()).getId()))
+			{
+				return false;
+			}
+			return true;
+		}
+	}
+
+	public static final MetaDataKey<ResolvedMeta> RESOLVED_KEY = new MetaDataKey<ResolvedMeta>()
+	{
+
+	};
+
 	/**
 	 * Completes component's hierarchy
 	 * 
@@ -288,6 +319,21 @@ public abstract class MarkupContainer extends Component implements Iterable<Comp
 				}
 			}
 
+			for (Component potential : parent)
+			{
+				ResolvedMeta meta = potential.getMetaData(RESOLVED_KEY);
+				if (meta != null)
+				{
+					int a = 2;
+					int b = a + 2;
+				}
+				if (meta != null && meta.isFor(markup))
+				{
+					child = potential;
+					break;
+				}
+			}
+
 			if (child == null)
 			{
 				// if we didnt find a queued child we could use try the resolvers
@@ -295,8 +341,9 @@ public abstract class MarkupContainer extends Component implements Iterable<Comp
 				child = ComponentResolvers.resolve(parent, markup, tag, null);
 				if (child != null)
 				{
-					tag.setId(child.getId());
-					tag.setModified(true);
+					// tag.setId(child.getId());
+					// tag.setModified(true);
+					child.setMetaData(RESOLVED_KEY, new ResolvedMeta(markup));
 				}
 			}
 
@@ -1685,6 +1732,18 @@ public abstract class MarkupContainer extends Component implements Iterable<Comp
 
 			// Get the component for the id from the given container
 			Component component = get(id);
+			if (component == null)
+			{
+				for (Component c : this)
+				{
+					ResolvedMeta meta = c.getMetaData(RESOLVED_KEY);
+					if (meta != null && meta.isFor(markupStream))
+					{
+						component = c;
+						break;
+					}
+				}
+			}
 			if (component == null)
 			{
 				component = ComponentResolvers.resolve(this, markupStream, tag, null);
