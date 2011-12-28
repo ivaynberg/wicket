@@ -299,8 +299,14 @@ public class HtmlHeaderContainer extends TransparentWebMarkupContainer
 				"Bug: The Wicket internal instance of HtmlHeaderContainer is not connected to a parent");
 		}
 
+		IMarkupFragment markup = super.getMarkup();
+		if (markup != null)
+		{
+			return markup;
+		}
+
 		// Get the page markup
-		IMarkupFragment markup = getPage().getMarkup();
+		markup = getPage().getMarkup();
 		if (markup == null)
 		{
 			throw new MarkupException("Unable to get page markup: " + getPage().toString());
